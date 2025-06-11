@@ -8,28 +8,34 @@ const Investments = ({
   currentMonthDate,
   onMonthChange,
   allTransactions,
-  transactions,        // ADICIONADO
-  setTransactions,     // ADICIONADO
-  setBalance           // ADICIONADO (se você tiver um setBalance para o saldo)
+  transactions,
+  setTransactions,
+  setBalance,
 }) => {
 
-  // ... resto do código
+  // ... outras definições de estado e variáveis (formData, initialFormData etc.)
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // validações...
 
     const quantity = parseFloat(formData.quantity);
     const purchasePrice = parseFloat(formData.purchasePrice);
-    
-    // data compra...
+    const purchaseDate = formData.purchaseDate || new Date().toISOString().split('T')[0];
+
+    if (isNaN(quantity) || isNaN(purchasePrice) || quantity <= 0 || purchasePrice <= 0) {
+      toast({
+        title: "Erro",
+        description: "Quantidade e preço devem ser maiores que zero.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const existingInvestment = investments.find(inv => inv.name === formData.name && inv.type === formData.type);
 
     if (editingInvestment) {
-      // atualização de investimento existente (edição)
-      // ... código já existente
+      // Lógica de edição já existente
+      // ...
     } else if (existingInvestment) {
       const totalQuantity = existingInvestment.quantity + quantity;
       const newTotalInvested = existingInvestment.totalInvested + (quantity * purchasePrice);
@@ -40,44 +46,65 @@ const Investments = ({
         quantity: totalQuantity,
         totalInvested: newTotalInvested,
         averagePrice: newAveragePrice,
-        currentValue: totalQuantity * existingInvestment.currentPrice, 
+        currentValue: totalQuantity * (existingInvestment.currentPrice || purchasePrice),
         history: [
           ...(existingInvestment.history || []),
-          { date: purchaseDate, price: purchasePrice, quantity, type: 'compra', dividends: 0 }
-        ]
+          { date: purchaseDate, price: purchasePrice, quantity, type: 'compra', dividends: 0 },
+        ],
       };
+
       updateInvestment(updatedExistingInvestment);
 
-      // --- ADICIONAR A TRANSAÇÃO DE DESPESA ---
+      // Transação de despesa
       const newTransaction = {
         id: uuidv4(),
-        type: 'despesa',
-        category: 'Investimento',
+        type: 'expense',
+        category: 'investimentos',
         description: `Compra de ${quantity} ${formData.name}`,
-        value: quantity * purchasePrice,
+        amount: quantity * purchasePrice,
         date: purchaseDate,
+        tags: ['investimento', formData.name.toLowerCase().replace(/\s+/g, '-')],
+        relatedInvestmentId: existingInvestment.id,
       };
       setTransactions(prev => [...prev, newTransaction]);
 
-      // --- DEBITAR DO SALDO TOTAL (SE TIVER) ---
       if (setBalance) {
         setBalance(prev => prev - (quantity * purchasePrice));
       }
 
-      toast({ title: "Sucesso!", description: `Adicionado a ${formData.name}. Preço médio atualizado.` });
+      toast({
+        title: "Sucesso!",
+        description: `Aportado em ${formData.name}. Preço médio atualizado.`,
+      });
 
     } else {
-      // nova aplicação de investimento
-      // código existente...
+      const newInvestment = {
+        id: uuidv4(),
+        name: formData.name,
+        type: formData.type,
+        quantity,
+        averagePrice: purchasePrice,
+        totalInvested: quantity * purchasePrice,
+        currentPrice: purchasePrice,
+        currentValue: quantity * purchasePrice,
+        dividends: 0,
+        history: [
+          { date: purchaseDate, price: purchasePrice, quantity, type: 'compra', dividends: 0 },
+        ],
+      };
 
-      // também criar a transação para a primeira compra
+      setInvestments(prev => [...prev, newInvestment]);
+
+      // Transação de despesa
       const newTransaction = {
         id: uuidv4(),
-        type: 'despesa',
-        category: 'Investimento',
+        type: 'expense',
+        category: 'investimentos',
         description: `Compra de ${quantity} ${formData.name}`,
-        value: quantity * purchasePrice,
+        amount: quantity * purchasePrice,
         date: purchaseDate,
+        tags: ['investimento', formData.name.toLowerCase().replace(/\s+/g, '-')],
+        relatedInvestmentId: newInvestment.id,
       };
       setTransactions(prev => [...prev, newTransaction]);
 
@@ -85,7 +112,10 @@ const Investments = ({
         setBalance(prev => prev - (quantity * purchasePrice));
       }
 
-      toast({ title: "Sucesso!", description: "Novo investimento adicionado." });
+      toast({
+        title: "Sucesso!",
+        description: "Novo investimento adicionado.",
+      });
     }
 
     setFormData(initialFormData);
@@ -93,5 +123,5 @@ const Investments = ({
     setEditingInvestment(null);
   };
 
-  // ...
+  // ... restante do componente
 };
