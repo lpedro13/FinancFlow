@@ -17,15 +17,15 @@ const Investments = () => {
       return;
     }
 
-    const purchaseAmount = parseFloat(purchaseValue.replace(',', '.'));
+    const unitPrice = parseFloat(purchaseValue.replace(',', '.'));
     const qty = parseFloat(quantity);
 
-    if (isNaN(purchaseAmount) || isNaN(qty) || qty <= 0) {
+    if (isNaN(unitPrice) || isNaN(qty) || qty <= 0) {
       Alert.alert('Erro', 'Quantidade ou valor inválido!');
       return;
     }
 
-    const totalValue = purchaseAmount * qty;
+    const totalValue = unitPrice * qty;
 
     const existingAssetIndex = state.investments.findIndex(
       (inv) => inv.name.toLowerCase() === assetName.toLowerCase()
@@ -55,29 +55,32 @@ const Investments = () => {
           type: assetType,
           quantity: qty,
           totalValue,
-          averagePrice: purchaseAmount,
+          averagePrice: unitPrice,
           date: purchaseDate,
         },
       });
     }
 
-    // ✅ Cria uma transação de despesa associada ao investimento
-    const transaction = {
-      id: Date.now().toString(),
-      type: 'expense',
-      description: `Compra de ${qty}x ${assetName}`,
-      amount: totalValue,
-      date: purchaseDate,
-      category: 'Investimentos',
-    };
+    // Cria transação de despesa
+    dispatch({
+      type: 'ADD_TRANSACTION',
+      payload: {
+        id: Date.now().toString(),
+        type: 'expense',
+        description: `Compra de ${qty}x ${assetName}`,
+        amount: totalValue,
+        date: purchaseDate,
+        category: 'Investimentos',
+      },
+    });
 
-    dispatch({ type: 'ADD_TRANSACTION', payload: transaction });
+    // Debita o saldo
+    dispatch({
+      type: 'SET_BALANCE',
+      payload: state.balance - totalValue,
+    });
 
-    // ✅ Debita do saldo principal
-    const updatedBalance = state.balance - totalValue;
-    dispatch({ type: 'SET_BALANCE', payload: updatedBalance });
-
-    // ✅ Limpa os campos
+    // Limpa os campos
     setAssetName('');
     setAssetType('');
     setPurchaseValue('');
