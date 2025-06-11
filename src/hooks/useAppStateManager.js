@@ -17,7 +17,7 @@ export const useAppStateManager = () => {
   const [userDefinedAlerts, setUserDefinedAlerts] = useLocalStorage('dashboardUserAlerts', []);
   const [previousMonthBalance, setPreviousMonthBalance] = useLocalStorage('previousMonthBalance', 0);
 
-  const [currentMonthDate, setCurrentMonthDate] = useState(new Date(getSystemDateISO())); // Initialize with system date
+  const [currentMonthDate, setCurrentMonthDate] = useState(new Date(getSystemDateISO()));
   const [resetPeriod, setResetPeriod] = useState('all');
   const [resetMonth, setResetMonth] = useState(new Date(getSystemDateISO()).getMonth());
   const [resetYear, setResetYear] = useState(new Date(getSystemDateISO()).getFullYear());
@@ -28,7 +28,7 @@ export const useAppStateManager = () => {
   };
 
   const handleUpdateTransaction = (updatedTransaction) => {
-    setTransactions(prev => (prev || []).map(t => t.id === updatedTransaction.id ? {...updatedTransaction, date: formatInputDate(updatedTransaction.date)} : t));
+    setTransactions(prev => (prev || []).map(t => t.id === updatedTransaction.id ? { ...updatedTransaction, date: formatInputDate(updatedTransaction.date) } : t));
   };
 
   const handleDeleteTransaction = (transactionId) => {
@@ -36,29 +36,25 @@ export const useAppStateManager = () => {
   };
 
   const handleSetTransactions = (newTransactions) => {
-    setTransactions(newTransactions.map(t => ({...t, date: formatInputDate(t.date) })));
+    setTransactions(newTransactions.map(t => ({ ...t, date: formatInputDate(t.date) })));
   };
 
-  // NOVA FUNÇÃO QUE SUBSTITUI handleAddInvestment
+  // ✅ FUNÇÃO CORRIGIDA: uso do campo 'amount' no lugar de 'value'
   const handleAddOrUpdateInvestmentPurchase = (investmentPurchase) => {
     const dateFormatted = formatInputDate(investmentPurchase.date || getSystemDateISO());
-    
-    // Verifica se investimento já existe pelo id
+
     const existingInvestment = investments.find(inv => inv.id === investmentPurchase.id);
 
     if (existingInvestment) {
-      // Atualiza o investimento existente somando o valor e atualizando a data, etc
       const updatedInvestment = {
         ...existingInvestment,
         totalInvested: existingInvestment.totalInvested + investmentPurchase.totalInvested,
         quantity: (existingInvestment.quantity || 0) + (investmentPurchase.quantity || 0),
         date: dateFormatted,
-        // atualize outros campos que forem necessários
       };
 
       setInvestments(prev => prev.map(inv => inv.id === updatedInvestment.id ? updatedInvestment : inv));
 
-      // Cria transação despesa para essa nova compra
       const expenseTransaction = {
         id: uuidv4(),
         type: 'expense',
@@ -69,14 +65,18 @@ export const useAppStateManager = () => {
         tags: ['investimento', updatedInvestment.name.toLowerCase().replace(/\s+/g, '-')],
         relatedInvestmentId: updatedInvestment.id,
       };
+
       setTransactions(prev => [...(prev || []), expenseTransaction]);
 
     } else {
-      // Se não existe investimento, cria novo investimento normalmente
-      const newInvestment = { ...investmentPurchase, id: investmentPurchase.id || uuidv4(), date: dateFormatted };
+      const newInvestment = {
+        ...investmentPurchase,
+        id: investmentPurchase.id || uuidv4(),
+        date: dateFormatted,
+      };
+
       setInvestments(prev => [...(prev || []), newInvestment]);
 
-      // Cria transação despesa para o investimento novo
       const expenseTransaction = {
         id: uuidv4(),
         type: 'expense',
@@ -87,12 +87,13 @@ export const useAppStateManager = () => {
         tags: ['investimento', newInvestment.name.toLowerCase().replace(/\s+/g, '-')],
         relatedInvestmentId: newInvestment.id,
       };
+
       setTransactions(prev => [...(prev || []), expenseTransaction]);
     }
   };
 
   const handleUpdateInvestment = (updatedInvestment) => {
-    setInvestments(prev => (prev || []).map(inv => inv.id === updatedInvestment.id ? {...updatedInvestment, date: formatInputDate(updatedInvestment.date || inv.date)} : inv));
+    setInvestments(prev => (prev || []).map(inv => inv.id === updatedInvestment.id ? { ...updatedInvestment, date: formatInputDate(updatedInvestment.date || inv.date) } : inv));
   };
 
   const handleDeleteInvestment = (investmentId) => {
@@ -100,17 +101,15 @@ export const useAppStateManager = () => {
     setTransactions(prev => (prev || []).filter(t => t.relatedInvestmentId !== investmentId));
   };
 
-  // --- resto das funções permanece igual ---
-
   const handleAddGoal = (goal) => {
-    const newGoal = { 
-      ...goal, 
-      id: goal.id || uuidv4(), 
+    const newGoal = {
+      ...goal,
+      id: goal.id || uuidv4(),
       deadline: goal.deadline ? formatInputDate(goal.deadline) : null,
       creationDate: formatInputDate(goal.creationDate || getSystemDateISO())
     };
     const monthlyContribution = newGoal.deadline ? calculateMonthlyContribution(newGoal.targetAmount, newGoal.currentAmount, newGoal.deadline) : 0;
-    setGoals(prev => [...(prev || []), {...newGoal, monthlyContribution}]);
+    setGoals(prev => [...(prev || []), { ...newGoal, monthlyContribution }]);
   };
 
   const handleUpdateGoal = (updatedGoal) => {
@@ -120,9 +119,9 @@ export const useAppStateManager = () => {
       creationDate: formatInputDate(updatedGoal.creationDate || getSystemDateISO())
     };
     const monthlyContribution = goalWithParsedDates.deadline ? calculateMonthlyContribution(goalWithParsedDates.targetAmount, goalWithParsedDates.currentAmount, goalWithParsedDates.deadline) : 0;
-    setGoals(prev => (prev || []).map(g => g.id === updatedGoal.id ? {...goalWithParsedDates, monthlyContribution} : g));
+    setGoals(prev => (prev || []).map(g => g.id === updatedGoal.id ? { ...goalWithParsedDates, monthlyContribution } : g));
   };
-  
+
   const handleDeleteGoal = (goalId) => {
     setGoals(prev => (prev || []).filter(g => g.id !== goalId));
   };
@@ -130,14 +129,14 @@ export const useAppStateManager = () => {
   const handleAddGoalContribution = (goalId, amount, type = 'contribution') => {
     setGoals(prevGoals => (prevGoals || []).map(goal => {
       if (goal.id === goalId) {
-        const newCurrentAmount = type === 'contribution' 
-          ? goal.currentAmount + amount 
+        const newCurrentAmount = type === 'contribution'
+          ? goal.currentAmount + amount
           : goal.currentAmount - amount;
         return { ...goal, currentAmount: Math.max(0, newCurrentAmount) };
       }
       return goal;
     }));
-    
+
     const currentGoals = goals || [];
     const goal = currentGoals.find(g => g.id === goalId);
     if (goal) {
@@ -150,7 +149,7 @@ export const useAppStateManager = () => {
         type: transactionType,
         amount: amount,
         description: `${descriptionPrefix} ${goal.name}`,
-        category: category, 
+        category: category,
         date: getSystemDateISO(),
         tags: [type === 'contribution' ? 'meta' : 'retirada-meta', goal.name.toLowerCase().replace(/\s+/g, '-')]
       };
@@ -164,13 +163,14 @@ export const useAppStateManager = () => {
     const prevMonthMonth = getMonth(prevMonth);
 
     const prevMonthTransactions = transactions.filter(t => {
-        const tDate = parseDate(t.date);
-        return isValid(tDate) && getMonth(tDate) === prevMonthMonth && dfnsGetYear(tDate) === prevMonthYear;
+      const tDate = parseDate(t.date);
+      return isValid(tDate) && getMonth(tDate) === prevMonthMonth && dfnsGetYear(tDate) === prevMonthYear;
     });
+
     const income = prevMonthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
     const expenses = prevMonthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
     const balance = income - expenses;
-    
+
     setPreviousMonthBalance(balance > 0 ? balance : 0);
     setCurrentMonthDate(newDate);
   };
@@ -242,7 +242,7 @@ export const useAppStateManager = () => {
     handleUpdateTransaction,
     handleDeleteTransaction,
     handleSetTransactions,
-    handleAddOrUpdateInvestmentPurchase, // FUNÇÃO CORRIGIDA AQUI
+    handleAddOrUpdateInvestmentPurchase,
     handleUpdateInvestment,
     handleDeleteInvestment,
     handleAddGoal,
