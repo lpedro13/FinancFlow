@@ -1,85 +1,134 @@
-import React, { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { useAppState } from "../hooks/useAppStateManager";
-import InvestmentList from "./InvestmentList";
-import InvestmentForm from "./InvestmentForm";
+import React, { useState } from 'react';
+import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
+import { useAppState } from '../contexts/AppStateContext';
+import { formatCurrency } from '../utils/format';
 
 const Investments = () => {
-  const {
-    investments,
-    setInvestments,
-    transactions,
-    setTransactions,
-    investmentTypes,
-  } = useAppState();
+  const { state, dispatch } = useAppState();
 
-  const [showForm, setShowForm] = useState(false);
+  const [assetName, setAssetName] = useState('');
+  const [assetType, setAssetType] = useState('');
+  const [purchaseValue, setPurchaseValue] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
 
-  const handleAddInvestment = (newInvestment) => {
-    const existingInvestmentIndex = investments.findIndex(
-      (inv) => inv.name === newInvestment.name
-    );
-
-    const quantity = parseFloat(newInvestment.quantity);
-    const purchasePrice = parseFloat(newInvestment.purchasePrice);
-    const purchaseDate = newInvestment.purchaseDate;
-
-    if (existingInvestmentIndex !== -1) {
-      // Ativo já existe, atualiza quantidade e preço médio
-      const existing = investments[existingInvestmentIndex];
-      const totalQty = existing.quantity + quantity;
-      const totalInvested =
-        existing.quantity * existing.averagePrice + quantity * purchasePrice;
-      const updatedAveragePrice = totalInvested / totalQty;
-
-      const updatedInvestments = [...investments];
-      updatedInvestments[existingInvestmentIndex] = {
-        ...existing,
-        quantity: totalQty,
-        averagePrice: updatedAveragePrice,
-      };
-
-      setInvestments(updatedInvestments);
-    } else {
-      // Novo ativo
-      const investmentToAdd = {
-        id: uuidv4(),
-        name: newInvestment.name,
-        type: newInvestment.type,
-        quantity: quantity,
-        averagePrice: purchasePrice,
-        purchaseDate,
-      };
-      setInvestments([...investments, investmentToAdd]);
+  const handleSubmit = () => {
+    if (!assetName || !assetType || !purchaseValue || !purchaseDate) {
+      Alert.alert('Erro', 'Preencha todos os campos!');
+      return;
     }
 
-    // Gera a transação de despesa
-    const newTransaction = {
-      id: uuidv4(),
-      type: "Despesa",
-      name: newInvestment.name,
-      category: "Investimentos",
-      value: quantity * purchasePrice,
-      date: purchaseDate,
-    };
-    setTransactions((prev) => [...prev, newTransaction]);
+    const purchaseAmount = parseFloat(purchaseValue.replace(',', '.'));
 
-    setShowForm(false);
+    // Verifica se o ativo já existe
+    const existingAssetIndex = state.investments.findIndex(
+      (inv) => inv.name === assetName
+    );
+
+    if (existingAssetIndex !== -1) {
+      // Atualiza o ativo existente
+      const updatedInvestments = [...state.investments];
+      const existing = updatedInvestments[existingAssetIndex];
+
+      const totalValue = existing.totalValue + purchaseAmount;
+      const totalQuantity = existing.quantity + 1; // ou adicione uma entrada de quantidade, se houver
+      const averagePrice = totalValue / totalQuantity;
+
+      updatedInvestments[existingAssetIndex] = {
+        ...existing,
+        totalValue,
+        quantity: totalQuantity,
+        averagePrice,
+      };
+
+      dispatch({ type: 'SET_INVESTMENTS', payload: updatedInvestments });
+    } else {
+      // Cria novo ativo
+      dispatch({
+        type: 'ADD_INVESTMENT',
+        payload: {
+          name: assetName,
+          type: assetType,
+          totalValue: purchaseAmount,
+          quantity: 1,
+          averagePrice: purchaseAmount,
+          date: purchaseDate,
+        },
+      });
+    }
+
+    // Cria transação de despesa associada ao investimento
+    dispatch({
+      type: 'ADD_TRANSACTION',
+      payload: {
+        id: Date.now().toString(),
+        type: 'expense',
+        description: `Compra de ${assetName}`,
+        amount: purchaseAmount,
+        date: purchaseDate,
+        category: 'Investimentos',
+      },
+    });
+
+    // Limpa os campos
+    setAssetName('');
+    setAssetType('');
+    setPurchaseValue('');
+    setPurchaseDate('');
   };
 
   return (
-    <div className="investments-container">
-      <h2>Investimentos</h2>
-      <button onClick={() => setShowForm(!showForm)}>+ novo invest.</button>
-      {showForm && (
-        <InvestmentForm
-          onSubmit={handleAddInvestment}
-          investmentTypes={investmentTypes}
-        />
-      )}
-      <InvestmentList investments={investments} />
-    </div>
+    <View style={styles.container}>
+      <Text style={styles.title}>Novo Investimento</Text>
+
+      <TextInput
+        style={styles.input}
+        placeholder="Nome do Ativo"
+        value={assetName}
+        onChangeText={setAssetName}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Tipo do Ativo"
+        value={assetType}
+        onChangeText={setAssetType}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Valor da Compra"
+        keyboardType="numeric"
+        value={purchaseValue}
+        onChangeText={setPurchaseValue}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Data da Compra (YYYY-MM-DD)"
+        value={purchaseDate}
+        onChangeText={setPurchaseDate}
+      />
+
+      <Button title="+ Novo Invest." onPress={handleSubmit} />
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 20,
+    backgroundColor: '#fff',
+    flex: 1,
+  },
+  title: {
+    fontSize: 20,
+    marginBottom: 16,
+    fontWeight: 'bold',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginBottom: 12,
+    padding: 10,
+    borderRadius: 5,
+  },
+});
 
 export default Investments;
