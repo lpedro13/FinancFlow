@@ -9,61 +9,66 @@ const Investments = () => {
   const [assetName, setAssetName] = useState('');
   const [assetType, setAssetType] = useState('');
   const [purchaseValue, setPurchaseValue] = useState('');
+  const [quantity, setQuantity] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
 
   const handleSubmit = () => {
-    if (!assetName || !assetType || !purchaseValue || !purchaseDate) {
+    if (!assetName || !assetType || !purchaseValue || !quantity || !purchaseDate) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
-    const purchaseAmount = parseFloat(purchaseValue.replace(',', '.'));
+    const unitPrice = parseFloat(purchaseValue.replace(',', '.'));
+    const quantityValue = parseFloat(quantity);
 
-    // Verifica se o ativo já existe
+    if (isNaN(unitPrice) || isNaN(quantityValue) || unitPrice <= 0 || quantityValue <= 0) {
+      Alert.alert('Erro', 'Valores inválidos para valor ou quantidade.');
+      return;
+    }
+
+    const totalInvestment = unitPrice * quantityValue;
+
     const existingAssetIndex = state.investments.findIndex(
       (inv) => inv.name === assetName
     );
 
     if (existingAssetIndex !== -1) {
-      // Atualiza o ativo existente
       const updatedInvestments = [...state.investments];
       const existing = updatedInvestments[existingAssetIndex];
 
-      const totalValue = existing.totalValue + purchaseAmount;
-      const totalQuantity = existing.quantity + 1; // ou adicione uma entrada de quantidade, se houver
-      const averagePrice = totalValue / totalQuantity;
+      const newTotalValue = existing.totalValue + totalInvestment;
+      const newTotalQuantity = existing.quantity + quantityValue;
+      const newAveragePrice = newTotalValue / newTotalQuantity;
 
       updatedInvestments[existingAssetIndex] = {
         ...existing,
-        totalValue,
-        quantity: totalQuantity,
-        averagePrice,
+        totalValue: newTotalValue,
+        quantity: newTotalQuantity,
+        averagePrice: newAveragePrice,
       };
 
       dispatch({ type: 'SET_INVESTMENTS', payload: updatedInvestments });
     } else {
-      // Cria novo ativo
       dispatch({
         type: 'ADD_INVESTMENT',
         payload: {
           name: assetName,
           type: assetType,
-          totalValue: purchaseAmount,
-          quantity: 1,
-          averagePrice: purchaseAmount,
+          totalValue: totalInvestment,
+          quantity: quantityValue,
+          averagePrice: unitPrice,
           date: purchaseDate,
         },
       });
     }
 
-    // Cria transação de despesa associada ao investimento
     dispatch({
       type: 'ADD_TRANSACTION',
       payload: {
         id: Date.now().toString(),
         type: 'expense',
-        description: `Compra de ${assetName}`,
-        amount: purchaseAmount,
+        description: `Compra de ${quantityValue}x ${assetName}`,
+        amount: totalInvestment,
         date: purchaseDate,
         category: 'Investimentos',
       },
@@ -73,6 +78,7 @@ const Investments = () => {
     setAssetName('');
     setAssetType('');
     setPurchaseValue('');
+    setQuantity('');
     setPurchaseDate('');
   };
 
@@ -94,10 +100,17 @@ const Investments = () => {
       />
       <TextInput
         style={styles.input}
-        placeholder="Valor da Compra"
+        placeholder="Valor Unitário da Compra"
         keyboardType="numeric"
         value={purchaseValue}
         onChangeText={setPurchaseValue}
+      />
+      <TextInput
+        style={styles.input}
+        placeholder="Quantidade de Cotas"
+        keyboardType="numeric"
+        value={quantity}
+        onChangeText={setQuantity}
       />
       <TextInput
         style={styles.input}
