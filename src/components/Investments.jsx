@@ -1,147 +1,164 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
-import { useAppState } from '../contexts/AppStateContext';
-import { formatCurrency } from '../utils/format';
+import React, { useState, useMemo } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { formatCurrency, formatPercentage } from '@/utils/formatters';
+import { useToast } from '@/components/ui/use-toast';
+import { v4 as uuidv4 } from 'uuid';
 
-const Investments = () => {
-  const { state, dispatch } = useAppState();
+const Investments = ({
+  investments,
+  setInvestments,
+  allTransactions,
+  setTransactions
+}) => {
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    type: '',
+    quantity: '',
+    purchasePrice: '',
+    date: '',
+  });
 
-  const [assetName, setAssetName] = useState('');
-  const [assetType, setAssetType] = useState('');
-  const [purchaseValue, setPurchaseValue] = useState('');
-  const [quantity, setQuantity] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState('');
+  const { toast } = useToast();
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
 
   const handleSubmit = () => {
-    if (!assetName || !assetType || !purchaseValue || !quantity || !purchaseDate) {
-      Alert.alert('Erro', 'Preencha todos os campos!');
+    const { name, type, quantity, purchasePrice, date } = formData;
+    if (!name || !type || !quantity || !purchasePrice || !date) {
+      toast({ title: 'Erro', description: 'Preencha todos os campos!', variant: 'destructive' });
       return;
     }
 
-    const unitPrice = parseFloat(purchaseValue.replace(',', '.'));
-    const quantityValue = parseFloat(quantity);
+    const qty = parseFloat(quantity);
+    const price = parseFloat(purchasePrice.replace(',', '.'));
+    const totalPurchaseValue = qty * price;
 
-    if (isNaN(unitPrice) || isNaN(quantityValue) || unitPrice <= 0 || quantityValue <= 0) {
-      Alert.alert('Erro', 'Valores inválidos para valor ou quantidade.');
-      return;
-    }
+    const existingIndex = investments.findIndex((inv) => inv.name === name);
+    let updatedInvestments = [...investments];
 
-    const totalInvestment = unitPrice * quantityValue;
+    if (existingIndex !== -1) {
+      const existing = updatedInvestments[existingIndex];
+      const newQuantity = existing.quantity + qty;
+      const newTotalValue = existing.totalValue + totalPurchaseValue;
+      const newAveragePrice = newTotalValue / newQuantity;
 
-    const existingAssetIndex = state.investments.findIndex(
-      (inv) => inv.name === assetName
-    );
-
-    if (existingAssetIndex !== -1) {
-      const updatedInvestments = [...state.investments];
-      const existing = updatedInvestments[existingAssetIndex];
-
-      const newTotalValue = existing.totalValue + totalInvestment;
-      const newTotalQuantity = existing.quantity + quantityValue;
-      const newAveragePrice = newTotalValue / newTotalQuantity;
-
-      updatedInvestments[existingAssetIndex] = {
+      updatedInvestments[existingIndex] = {
         ...existing,
+        quantity: newQuantity,
         totalValue: newTotalValue,
-        quantity: newTotalQuantity,
         averagePrice: newAveragePrice,
       };
-
-      dispatch({ type: 'SET_INVESTMENTS', payload: updatedInvestments });
     } else {
-      dispatch({
-        type: 'ADD_INVESTMENT',
-        payload: {
-          name: assetName,
-          type: assetType,
-          totalValue: totalInvestment,
-          quantity: quantityValue,
-          averagePrice: unitPrice,
-          date: purchaseDate,
-        },
+      updatedInvestments.push({
+        id: uuidv4(),
+        name,
+        type,
+        quantity: qty,
+        totalValue: totalPurchaseValue,
+        averagePrice: price,
       });
     }
 
-    dispatch({
-      type: 'ADD_TRANSACTION',
-      payload: {
-        id: Date.now().toString(),
-        type: 'expense',
-        description: `Compra de ${quantityValue}x ${assetName}`,
-        amount: totalInvestment,
-        date: purchaseDate,
-        category: 'Investimentos',
-      },
-    });
+    setInvestments(updatedInvestments);
 
-    // Limpa os campos
-    setAssetName('');
-    setAssetType('');
-    setPurchaseValue('');
-    setQuantity('');
-    setPurchaseDate('');
+    // Cria a transação correspondente
+    const newTransaction = {
+      id: uuidv4(),
+      type: 'expense',
+      description: `Compra de ${qty}x ${name}`,
+      amount: totalPurchaseValue,
+      date,
+      category: 'Investimentos',
+    };
+
+    setTransactions([newTransaction, ...allTransactions]);
+
+    // Resetar form
+    setFormData({
+      name: '',
+      type: '',
+      quantity: '',
+      purchasePrice: '',
+      date: '',
+    });
+    setIsFormOpen(false);
+
+    toast({ title: 'Sucesso', description: 'Investimento adicionado com sucesso!' });
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Novo Investimento</Text>
+    <Card className="mt-4">
+      <CardHeader>
+        <CardTitle>Investimentos</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">+ Novo Invest.</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Novo Investimento</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4">
+              <div>
+                <Label>Nome do Ativo</Label>
+                <Input name="name" value={formData.name} onChange={handleChange} />
+              </div>
+              <div>
+                <Label>Tipo do Ativo</Label>
+                <Input name="type" value={formData.type} onChange={handleChange} />
+              </div>
+              <div>
+                <Label>Quantidade</Label>
+                <Input name="quantity" value={formData.quantity} onChange={handleChange} keyboardType="numeric" />
+              </div>
+              <div>
+                <Label>Preço por Cota</Label>
+                <Input name="purchasePrice" value={formData.purchasePrice} onChange={handleChange} keyboardType="numeric" />
+              </div>
+              <div>
+                <Label>Data</Label>
+                <Input name="date" value={formData.date} onChange={handleChange} placeholder="YYYY-MM-DD" />
+              </div>
+              <Button onClick={handleSubmit}>Salvar</Button>
+            </div>
+          </DialogContent>
+        </Dialog>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Nome do Ativo"
-        value={assetName}
-        onChangeText={setAssetName}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Tipo do Ativo"
-        value={assetType}
-        onChangeText={setAssetType}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Valor Unitário da Compra"
-        keyboardType="numeric"
-        value={purchaseValue}
-        onChangeText={setPurchaseValue}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Quantidade de Cotas"
-        keyboardType="numeric"
-        value={quantity}
-        onChangeText={setQuantity}
-      />
-      <TextInput
-        style={styles.input}
-        placeholder="Data da Compra (YYYY-MM-DD)"
-        value={purchaseDate}
-        onChangeText={setPurchaseDate}
-      />
-
-      <Button title="+ Novo Invest." onPress={handleSubmit} />
-    </View>
+        <div className="mt-6 space-y-4">
+          {investments.length === 0 ? (
+            <p>Nenhum investimento cadastrado.</p>
+          ) : (
+            investments.map((inv) => (
+              <Card key={inv.id}>
+                <CardHeader>
+                  <CardTitle>{inv.name}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p>Tipo: {inv.type}</p>
+                  <p>Quantidade: {inv.quantity}</p>
+                  <p>Valor Total: {formatCurrency(inv.totalValue)}</p>
+                  <p>Preço Médio: {formatCurrency(inv.averagePrice)}</p>
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 };
-
-const styles = StyleSheet.create({
-  container: {
-    padding: 20,
-    backgroundColor: '#fff',
-    flex: 1,
-  },
-  title: {
-    fontSize: 20,
-    marginBottom: 16,
-    fontWeight: 'bold',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginBottom: 12,
-    padding: 10,
-    borderRadius: 5,
-  },
-});
 
 export default Investments;
