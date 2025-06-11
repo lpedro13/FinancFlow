@@ -191,7 +191,7 @@ logger.error = (msg, options) => {
 };
 
 export default defineConfig(async () => ({
-	base: '/FinacFlow/',  // <=== base corrigido aqui
+	base: '/FinancFlow/',  // base corrigido aqui
 	customLogger: logger,
 	plugins: [
 		...(await getDevPlugins()),
