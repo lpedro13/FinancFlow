@@ -17,7 +17,6 @@ import InvestmentChart from '@/components/InvestmentChart';
 import { calculatePortfolioMetrics, calculateInvestmentMetrics } from '@/utils/calculations';
 import { v4 as uuidv4 } from 'uuid';
 
-
 const Investments = ({ 
   investments, 
   setInvestments, 
@@ -64,7 +63,6 @@ const Investments = ({
       return;
     }
     const purchaseDate = purchaseDateObj.toISOString().split('T')[0];
-
 
     if (isNaN(quantity) || quantity <= 0 || isNaN(purchasePrice) || purchasePrice <= 0) {
       toast({ title: "Erro", description: "Quantidade e preço de compra devem ser números positivos.", variant: "destructive" });
@@ -123,7 +121,7 @@ const Investments = ({
         date: purchaseDate,
         history: [{ date: purchaseDate, price: purchasePrice, quantity, type: 'compra', dividends: 0 }]
       };
-      setInvestments(newInvestment); 
+      setInvestments(prev => [...prev, newInvestment]);  // Corrigido para adicionar ao array
       toast({ title: "Sucesso!", description: "Novo investimento adicionado." });
     }
 
@@ -242,130 +240,143 @@ const Investments = ({
 
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-        <MonthSelector 
-          currentMonth={currentMonthDate} 
-          onMonthChange={onMonthChange} 
-        />
-        <div className="flex gap-2 self-end sm:self-center">
-          <InvestmentManager investmentTypes={investmentTypes} onAddType={(newType) => setInvestmentTypes(prev => [...prev, newType])} />
-          <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={() => { setEditingInvestment(null); setFormData(initialFormData); setIsFormOpen(true); }} className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 h-9 text-xs sm:text-sm">
-                <Plus className="h-4 w-4 mr-1 sm:mr-2" />
-                Novo Invest.
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="glass-effect w-[90vw] max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="gradient-text">{editingInvestment ? 'Editar Investimento' : 'Novo Investimento'}</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4 pt-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="name">Nome do Ativo</Label>
-                    <Input id="name" value={formData.name} onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))} placeholder="Ex: PETR4" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="type">Tipo</Label>
-                    <Select value={formData.type} onValueChange={(value) => setFormData(prev => ({ ...prev, type: value }))}>
-                      <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                      <SelectContent>{investmentTypes.map(type => (<SelectItem key={type.id} value={type.id}>{type.name}</SelectItem>))}</SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="space-y-1">
-                    <Label htmlFor="quantity">Quantidade</Label>
-                    <Input id="quantity" type="number" value={formData.quantity} onChange={(e) => setFormData(prev => ({ ...prev, quantity: e.target.value }))} placeholder="100" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="purchasePrice">Preço de Compra (un.)</Label>
-                    <Input id="purchasePrice" type="number" step="0.01" value={formData.purchasePrice} onChange={(e) => setFormData(prev => ({ ...prev, purchasePrice: e.target.value }))} placeholder="32,50" />
-                  </div>
-                   <div className="space-y-1">
-                    <Label htmlFor="date">Data da Compra</Label>
-                    <Input id="date" type="date" value={formData.date} onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))} />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="sector">Setor (opcional)</Label>
-                  <Input id="sector" value={formData.sector} onChange={(e) => setFormData(prev => ({ ...prev, sector: e.target.value }))} placeholder="Ex: Petróleo" />
-                </div>
-                <Button type="submit" className="w-full">{editingInvestment ? 'Atualizar' : 'Adicionar'}</Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-        <Card className="glass-effect border-blue-500/20"><CardHeader className="pb-1 sm:pb-2"><CardTitle className="text-xs sm:text-sm font-medium text-blue-400">Total Investido</CardTitle><DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-400" /></CardHeader><CardContent className="pt-1 sm:pt-0"><div className="text-lg sm:text-2xl font-bold text-blue-400">{formatCurrency(portfolioMetrics.totalInvested)}</div></CardContent></Card>
-        <Card className="glass-effect border-green-500/20"><CardHeader className="pb-1 sm:pb-2"><CardTitle className="text-xs sm:text-sm font-medium text-green-400">Valor Atual</CardTitle><TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-green-400" /></CardHeader><CardContent className="pt-1 sm:pt-0"><div className="text-lg sm:text-2xl font-bold text-green-400">{formatCurrency(portfolioMetrics.totalValue)}</div></CardContent></Card>
-        <Card className="glass-effect border-purple-500/20"><CardHeader className="pb-1 sm:pb-2"><CardTitle className="text-xs sm:text-sm font-medium text-purple-400">Retorno Total</CardTitle>{portfolioMetrics.totalReturn >= 0 ? <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" /> : <TrendingDown className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-purple-400" />}</CardHeader><CardContent className="pt-1 sm:pt-0"><div className={`text-lg sm:text-2xl font-bold ${portfolioMetrics.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>{formatCurrency(portfolioMetrics.totalReturn)}</div><p className="text-xs text-muted-foreground">{formatPercentage(portfolioMetrics.returnPercentage)}</p></CardContent></Card>
-        <Card className="glass-effect border-amber-500/20"><CardHeader className="pb-1 sm:pb-2"><CardTitle className="text-xs sm:text-sm font-medium text-amber-400">Dividendos</CardTitle><PieChartIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-amber-400" /></CardHeader><CardContent className="pt-1 sm:pt-0"><div className="text-lg sm:text-2xl font-bold text-amber-400">{formatCurrency(portfolioMetrics.totalDividends)}</div><p className="text-xs text-muted-foreground">{formatPercentage(portfolioMetrics.dividendYield)} de yield</p></CardContent></Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <Card className="glass-effect"><CardHeader><CardTitle className="gradient-text text-base sm:text-lg">Distribuição por Tipo</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={250}><PieChart><Pie data={pieData} cx="50%" cy="50%" labelLine={false} label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`} outerRadius={window.innerWidth < 640 ? 60 : 80} fill="#8884d8" dataKey="value">{pieData.map((entry, index) => (<Cell key={`cell-${index}`} fill={entry.color} />))}</Pie><Tooltip formatter={(value) => formatCurrency(value)} /><Legend wrapperStyle={{fontSize: "12px"}} /></PieChart></ResponsiveContainer></CardContent></Card>
-        <Card className="glass-effect"><CardHeader><CardTitle className="gradient-text text-base sm:text-lg">Performance dos Ativos</CardTitle></CardHeader><CardContent><ResponsiveContainer width="100%" height={250}><BarChart data={performanceData} layout="vertical" margin={{ top: 5, right: 5, left: 5, bottom: 5 }}><CartesianGrid strokeDasharray="3 3" stroke="#374151" /><XAxis type="number" stroke="#9ca3af" tickFormatter={(value) => formatCurrency(value, true)} tick={{fontSize: 10}} /><YAxis type="category" dataKey="name" stroke="#9ca3af" width={window.innerWidth < 640 ? 60 : 80} tick={{fontSize: 10}} /><Tooltip formatter={(value, name) => name === 'returnPercentage' ? formatPercentage(value*100) : formatCurrency(value)} contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} /><Legend wrapperStyle={{fontSize: "12px"}} /><Bar dataKey="invested" fill="#3b82f6" name="Investido" stackId="a" barSize={15} /><Bar dataKey="current" fill="#10b981" name="Valor Atual" stackId="a" barSize={15} /><Bar dataKey="dividends" fill="#f59e0b" name="Dividendos" stackId="a" barSize={15} /></BarChart></ResponsiveContainer></CardContent></Card>
-      </div>
-      
-      <Card className="glass-effect">
-        <CardHeader><CardTitle className="gradient-text flex items-center gap-2 text-base sm:text-lg"><LineChartIcon /> Evolução Total dos Investimentos</CardTitle></CardHeader>
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Investimentos</CardTitle>
+          <Button variant="outline" onClick={() => { setIsFormOpen(true); setEditingInvestment(null); }}>
+            <Plus className="mr-2 h-4 w-4" /> Novo investimento
+          </Button>
+        </CardHeader>
         <CardContent>
-          {investmentEvolutionData.length > 1 ? (
-            <InvestmentChart data={investmentEvolutionData} />
+          {investments.length === 0 ? (
+            <p>Nenhum investimento cadastrado.</p>
           ) : (
-            <p className="text-muted-foreground text-center py-10">Dados insuficientes para exibir a evolução. Adicione mais histórico de compras/atualizações.</p>
+            <table className="w-full text-left">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Tipo</th>
+                  <th>Quantidade</th>
+                  <th>Preço Médio</th>
+                  <th>Valor Atual</th>
+                  <th>Setor</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {investments.map(inv => (
+                  <tr key={inv.id}>
+                    <td>{inv.name}</td>
+                    <td>{investmentTypes.find(t => t.id === inv.type)?.name || inv.type}</td>
+                    <td>{inv.quantity}</td>
+                    <td>{formatCurrency(inv.averagePrice)}</td>
+                    <td>{formatCurrency(inv.currentValue)}</td>
+                    <td>{inv.sector}</td>
+                    <td>
+                      <Button size="sm" variant="ghost" onClick={() => handleEditClick(inv)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDeleteClick(inv.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </CardContent>
       </Card>
 
-      <Card className="glass-effect">
-        <CardHeader><CardTitle className="gradient-text text-base sm:text-lg">Meus Investimentos</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-3 sm:space-y-4">
-            {investments.length === 0 ? (<div className="text-center py-8 text-muted-foreground"><BarChart3 className="h-10 sm:h-12 w-10 sm:w-12 mx-auto mb-3 sm:mb-4 opacity-50" /><p>Nenhum investimento cadastrado</p></div>) : 
-            (investments.map((investment, index) => {
-              const metrics = calculateInvestmentMetrics(investment);
-              const typeInfo = investmentTypes.find(t => t.id === investment.type);
-              return (
-                <motion.div key={investment.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.05 }} className="p-3 sm:p-4 bg-gray-800/50 rounded-lg hover:bg-gray-800/70 transition-colors">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between">
-                    <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-0">
-                      <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full" style={{ backgroundColor: typeInfo?.color || '#6b7280' }} />
-                      <div>
-                        <h3 className="font-semibold text-sm sm:text-lg">{investment.name}</h3>
-                        <div className="flex flex-wrap items-center gap-x-2 sm:gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                          <span>{typeInfo?.name || investment.type}</span>
-                          {investment.sector && (<><span>•</span><span>{investment.sector}</span></>)}
-                          <span>•</span><span>{investment.quantity} cotas</span>
-                          <span>•</span><span>PM: {formatCurrency(investment.averagePrice)}</span>
-                          <span>•</span><span>Data: {formatDate(investment.date)}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 sm:gap-2 self-start sm:self-center">
-                       <InvestmentUpdate investment={investment} onUpdateInvestment={updateInvestment} />
-                       <Button variant="ghost" size="sm" onClick={() => handleEditClick(investment)} className="h-7 w-7 sm:h-8 sm:w-8 p-0"><Edit className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></Button>
-                       <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(investment.id)} className="h-7 w-7 sm:h-8 sm:w-8 p-0"><Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" /></Button>
-                    </div>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 text-xs sm:text-sm">
-                    <div><p className="text-muted-foreground">Investido</p><p className="font-medium">{formatCurrency(investment.totalInvested)}</p></div>
-                    <div><p className="text-muted-foreground">Valor Atual</p><p className="font-medium">{formatCurrency(investment.currentValue)}</p></div>
-                    <div><p className="text-muted-foreground">Retorno</p><p className={`font-bold ${metrics.totalReturn >= 0 ? 'text-green-400' : 'text-red-400'}`}>{metrics.totalReturn >= 0 ? '+' : ''}{formatCurrency(metrics.totalReturn)} ({formatPercentage(metrics.returnPercentage)})</p></div>
-                    <div><p className="text-muted-foreground">Dividendos</p><p className="font-medium text-amber-400">{formatCurrency(metrics.totalDividends)} ({formatPercentage(metrics.dividendYield)})</p></div>
-                  </div>
-                </motion.div>
-              );
-            }))}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editingInvestment ? 'Editar Investimento' : 'Novo Investimento'}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={e => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="type">Tipo</Label>
+              <Select
+                value={formData.type}
+                onValueChange={value => setFormData(prev => ({ ...prev, type: value }))}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {investmentTypes.map(type => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="quantity">Quantidade</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="0"
+                step="any"
+                value={formData.quantity}
+                onChange={e => setFormData(prev => ({ ...prev, quantity: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="purchasePrice">Preço de Compra</Label>
+              <Input
+                id="purchasePrice"
+                type="number"
+                min="0"
+                step="any"
+                value={formData.purchasePrice}
+                onChange={e => setFormData(prev => ({ ...prev, purchasePrice: e.target.value }))}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="sector">Setor</Label>
+              <Input
+                id="sector"
+                value={formData.sector}
+                onChange={e => setFormData(prev => ({ ...prev, sector: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="date">Data da Compra</Label>
+              <Input
+                id="date"
+                type="date"
+                value={formData.date}
+                onChange={e => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                required
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button type="button" variant="outline" onClick={() => { setIsFormOpen(false); setEditingInvestment(null); }}>
+                Cancelar
+              </Button>
+              <Button type="submit">{editingInvestment ? 'Salvar' : 'Adicionar'}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Aqui você pode adicionar os gráficos, resumos, e outros componentes que quiser */}
+    </>
   );
 };
 
