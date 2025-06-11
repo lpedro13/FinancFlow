@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { formatInputDate, getSystemDateISO } from '@/utils/date';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -69,16 +69,13 @@ export const useAppStateManager = () => {
     const unitPrice = parseFloat(investment.unitPrice || investment.totalInvested || 0);
     const totalPurchase = quantity * unitPrice;
 
-    let updated = false;
-
-    const updatedInvestments = (investments || []).map((inv) => {
+    let found = false;
+    const updatedInvestments = investments.map((inv) => {
       if (inv.name === investment.name) {
+        found = true;
         const newQuantity = inv.quantity + quantity;
         const newTotal = inv.totalValue + totalPurchase;
         const newAverage = newTotal / newQuantity;
-
-        updated = true;
-
         return {
           ...inv,
           quantity: newQuantity,
@@ -90,7 +87,7 @@ export const useAppStateManager = () => {
       return inv;
     });
 
-    if (!updated) {
+    if (!found) {
       updatedInvestments.push({
         id: uuidv4(),
         name: investment.name,
@@ -113,7 +110,7 @@ export const useAppStateManager = () => {
       date,
     };
 
-    setTransactions((prev) => [...(prev || []), expenseTransaction]);
+    setTransactions(prev => [...(prev || []), expenseTransaction]);
   };
 
   const handleAddGoal = (goal) => {
