@@ -57,7 +57,32 @@ export const useAppStateManager = () => {
   };
   
   const handleUpdateInvestment = (updatedInvestment) => {
-    setInvestments(prev => (prev || []).map(inv => inv.id === updatedInvestment.id ? {...updatedInvestment, date: formatInputDate(updatedInvestment.date || inv.date)} : inv));
+    setInvestments(prev => {
+      return (prev || []).map(inv => {
+        if (inv.id === updatedInvestment.id) {
+          // Calcula o valor adicional investido (diferença do totalInvested anterior e o novo)
+          const amountAdded = updatedInvestment.totalInvested - inv.totalInvested;
+
+          if (amountAdded > 0) {
+            // Cria a nova transação de despesa para essa aplicação adicional
+            const expenseTransaction = {
+              id: uuidv4(),
+              type: 'expense',
+              amount: amountAdded,
+              description: `Investimento em ${updatedInvestment.name}`,
+              category: 'investimentos',
+              date: formatInputDate(updatedInvestment.date || getSystemDateISO()),
+              tags: ['investimento', updatedInvestment.name.toLowerCase().replace(/\s+/g, '-')],
+              relatedInvestmentId: updatedInvestment.id,
+            };
+            setTransactions(prevTransactions => [...(prevTransactions || []), expenseTransaction]);
+          }
+
+          return { ...updatedInvestment, date: formatInputDate(updatedInvestment.date || inv.date) };
+        }
+        return inv;
+      });
+    });
   };
 
   const handleDeleteInvestment = (investmentId) => {
@@ -205,159 +230,38 @@ export const useAppStateManager = () => {
 
   const handlePayAccount = (accountToPay) => {
     const paymentDate = getSystemDateISO();
-    const expenseTransaction = {
+    const paymentTransaction = {
       id: uuidv4(),
       type: 'expense',
       amount: accountToPay.amount,
-      description: `Pagamento: ${accountToPay.description}`,
-      category: accountToPay.category || 'contas',
+      description: `Pagamento de ${accountToPay.name}`,
+      category: 'contas a pagar',
       date: paymentDate,
-      tags: ['conta-paga', accountToPay.category || ''],
-      relatedAccountId: accountToPay.id,
+      tags: ['contas-a-pagar', accountToPay.name.toLowerCase().replace(/\s+/g, '-')],
+      relatedAccountPayableId: accountToPay.id,
     };
-    setTransactions(prev => [...(prev || []), expenseTransaction]);
-    
-    setAccountsPayable(prevAccounts => 
-      prevAccounts.map(acc => acc.id === accountToPay.id ? { ...acc, paid: true, paymentDate: paymentDate } : acc)
-    );
+    setTransactions(prev => [...(prev || []), paymentTransaction]);
+    setAccountsPayable(prev => (prev || []).filter(ap => ap.id !== accountToPay.id));
   };
 
-  const handleGenerateRecurringAccounts = useCallback(() => {
-    const currentMonth = getMonth(currentMonthDate);
-    const currentYear = dfnsGetYear(currentMonthDate);
-
-    setAccountsPayable(prevAccounts => {
-      const newAccounts = [...prevAccounts];
-      prevAccounts.forEach(acc => {
-        if (acc.isRecurring && !acc.paid && acc.originalDueDate) { // Ensure originalDueDate exists
-          const originalDueDate = parseDate(acc.originalDueDate);
-          if (!isValid(originalDueDate)) return;
-
-          let nextIterationDate = addMonths(originalDueDate, acc.currentInstallment || 0); // Start from the original due date for calculation
-          
-          // For monthly fixed, we need to ensure it's generated for the current view month if not paid
-          if (acc.recurrenceType === 'monthly') {
-            nextIterationDate = new Date(currentYear, currentMonth, originalDueDate.getDate());
-          }
-
-          const alreadyExists = newAccounts.some(existingAcc => 
-            existingAcc.description === acc.description &&
-            formatInputDate(existingAcc.dueDate) === formatInputDate(nextIterationDate) && // Compare formatted dates
-            existingAcc.id !== acc.id // Don't compare with self if it's an update scenario
-          );
-
-          if (!alreadyExists && isValid(nextIterationDate) && (nextIterationDate <= endOfMonth(currentMonthDate))) {
-             if (acc.recurrenceType === 'monthly') {
-                // Check if an instance for this month already exists and is not the current one
-                const monthInstanceExists = newAccounts.some(existingAcc => 
-                    existingAcc.description === acc.description &&
-                    getMonth(parseDate(existingAcc.dueDate)) === currentMonth &&
-                    dfnsGetYear(parseDate(existingAcc.dueDate)) === currentYear &&
-                    existingAcc.id !== acc.id
-                );
-                if (!monthInstanceExists) {
-                    newAccounts.push({
-                      ...acc,
-                      id: uuidv4(), // New ID for new instance
-                      dueDate: formatInputDate(nextIterationDate),
-                      paid: false,
-                      // originalDueDate: acc.originalDueDate, // Keep original due date
-                      // currentInstallment will be null for monthly
-                    });
-                }
-            } else if (acc.recurrenceType === 'installments') {
-                // Iterate for installments up to the current view month
-                let installmentNumber = acc.currentInstallment || 1;
-                let installmentDueDate = addMonths(originalDueDate, installmentNumber -1);
-
-                while(installmentNumber <= acc.totalInstallments && installmentDueDate <= endOfMonth(currentMonthDate)) {
-                     const installmentExists = newAccounts.some(existingAcc => 
-                        existingAcc.description === acc.description &&
-                        existingAcc.originalDueDate === acc.originalDueDate && // Match original due date for installments
-                        existingAcc.currentInstallment === installmentNumber
-                    );
-
-                    if(!installmentExists){
-                        newAccounts.push({
-                          ...acc,
-                          id: uuidv4(),
-                          dueDate: formatInputDate(installmentDueDate),
-                          paid: false,
-                          currentInstallment: installmentNumber,
-                          // originalDueDate: acc.originalDueDate, // Keep original due date
-                        });
-                    }
-                    installmentNumber++;
-                    installmentDueDate = addMonths(originalDueDate, installmentNumber -1);
-                }
-            }
-          }
-        }
-      });
-      // Deduplicate based on a more robust key for recurring items
-      return newAccounts.filter((value, index, self) => 
-        index === self.findIndex((t) => (
-          t.description === value.description && 
-          t.amount === value.amount &&
-          t.originalDueDate === value.originalDueDate && // Important for recurring
-          t.currentInstallment === value.currentInstallment && // Important for installments
-          (t.id === value.id) // If IDs are the same, it's the same instance
-        ))
-      );
-    });
-  }, [currentMonthDate, setAccountsPayable]);
-
-  const handleAddCategory = (category) => {
-    setCategories(prev => [...prev, category]);
-  };
-
-  const handleDeleteCategory = (categoryId) => {
-    setCategories(prev => prev.filter(cat => cat.id !== categoryId));
-    setTransactions(prevTrans => prevTrans.map(t => 
-      t.category === categoryId ? { ...t, category: 'outros' } : t
-    ));
-    setBudgets(prevBudgets => prevBudgets.filter(b => b.category !== categoryId));
-  };
-
-  const handleUpdateCategory = (categoryId, updatedCategoryData) => {
-    setCategories(prev => prev.map(cat => cat.id === categoryId ? { ...cat, ...updatedCategoryData } : cat));
-  };
-
-  const handleAddInvestmentType = (investmentType) => {
-    setInvestmentTypes(prev => [...prev, { ...investmentType, id: uuidv4(), color: generateRandomColor() }]);
-  };
-
-  const handleDeleteInvestmentType = (typeId) => {
-    setInvestmentTypes(prev => prev.filter(it => it.id !== typeId));
-    setInvestments(prevInvestments => prevInvestments.map(inv => 
-      inv.type === typeId ? { ...inv, type: 'outros-investimentos' } : inv 
-    ));
-  };
-
-  const handleUpdateInvestmentType = (typeId, updatedTypeData) => {
-    setInvestmentTypes(prev => prev.map(it => it.id === typeId ? { ...it, ...updatedTypeData } : it));
-  };
-
-
-  const availableYears = useMemo(() => {
-    const currentYr = new Date(getSystemDateISO()).getFullYear();
-    return Array.from({ length: 5 }, (_, i) => currentYr - i);
-  }, []);
-
+  // Retorna os estados e funções para manipulação
   return {
-    transactions, setTransactions,
-    investments, setInvestments,
-    goals, setGoals,
-    budgets, setBudgets,
-    categories, setCategories,
-    investmentTypes, setInvestmentTypes,
-    accountsPayable, setAccountsPayable,
-    userDefinedAlerts, setUserDefinedAlerts,
-    currentMonthDate, setCurrentMonthDate,
+    transactions,
+    investments,
+    goals,
+    budgets,
+    categories,
+    investmentTypes,
+    accountsPayable,
+    userDefinedAlerts,
     previousMonthBalance,
-    resetPeriod, setResetPeriod,
-    resetMonth, setResetMonth,
-    resetYear, setResetYear,
+    currentMonthDate,
+    resetPeriod,
+    resetMonth,
+    resetYear,
+    setResetPeriod,
+    setResetMonth,
+    setResetYear,
     handleAddTransaction,
     handleUpdateTransaction,
     handleDeleteTransaction,
@@ -371,14 +275,6 @@ export const useAppStateManager = () => {
     handleAddGoalContribution,
     handleMonthChange,
     handleResetData,
-    availableYears,
     handlePayAccount,
-    handleGenerateRecurringAccounts,
-    handleAddCategory,
-    handleDeleteCategory,
-    handleUpdateCategory,
-    handleAddInvestmentType,
-    handleDeleteInvestmentType,
-    handleUpdateInvestmentType,
   };
 };
