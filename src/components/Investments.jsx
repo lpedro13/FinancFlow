@@ -61,20 +61,23 @@ const Investments = () => {
       });
     }
 
-    // ✅ Cria uma transação de despesa SEMPRE
-    dispatch({
-      type: 'ADD_TRANSACTION',
-      payload: {
-        id: Date.now().toString(),
-        type: 'expense',
-        description: `Compra de ${qty}x ${assetName}`,
-        amount: totalValue,
-        date: purchaseDate,
-        category: 'Investimentos',
-      },
-    });
+    // ✅ Cria uma transação de despesa associada ao investimento
+    const transaction = {
+      id: Date.now().toString(),
+      type: 'expense',
+      description: `Compra de ${qty}x ${assetName}`,
+      amount: totalValue,
+      date: purchaseDate,
+      category: 'Investimentos',
+    };
 
-    // Limpa os campos
+    dispatch({ type: 'ADD_TRANSACTION', payload: transaction });
+
+    // ✅ Debita do saldo principal
+    const updatedBalance = state.balance - totalValue;
+    dispatch({ type: 'SET_BALANCE', payload: updatedBalance });
+
+    // ✅ Limpa os campos
     setAssetName('');
     setAssetType('');
     setPurchaseValue('');
