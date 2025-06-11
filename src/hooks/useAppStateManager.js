@@ -1,131 +1,131 @@
-import { useState, useEffect, useCallback } from "react";
-import { useUser } from "@clerk/clerk-react";
+// 🔽 CÓDIGO CORRIGIDO - useAppStateManager.js
+import { useState, useMemo, useCallback } from 'react';
+import { useLocalStorage } from '@/hooks/useLocalStorage';
 import {
-  getCategories,
-  getContas,
-  getDashboardData,
-  getLancamentos,
-  getOrcamentos,
-  getUserPreferences,
-} from "@/utils/localApi";
-import { useAppStore } from "@/utils/useAppStore";
-import { useModalStore } from "@/utils/useModalStore";
-import { useLoadingStore } from "@/utils/useLoadingStore";
+  categories as defaultCategories,
+  investmentTypes as defaultInvestmentTypes,
+  generateRandomColor,
+  generateRandomIcon,
+} from '@/data/mockData';
+import {
+  parseDate,
+  getMonthName,
+  formatDate,
+  formatInputDate,
+  getSystemDateISO,
+} from '@/utils/formatters';
+import { calculateMonthlyContribution } from '@/utils/calculations';
+import { v4 as uuidv4 } from 'uuid';
+import {
+  startOfMonth,
+  endOfMonth,
+  isWithinInterval,
+  getMonth,
+  getYear as dfnsGetYear,
+  addMonths,
+  isSameDay,
+  subMonths,
+  isValid,
+} from 'date-fns';
 
 export const useAppStateManager = () => {
-  const { user } = useUser();
-  const { setLoading } = useLoadingStore();
-  const {
-    lancamentos,
-    setLancamentos,
-    setPreferences,
-    setContas,
-    setCategories,
-    setOrcamentos,
-    setDashboardData,
-    resetAppState,
-  } = useAppStore();
-  const { isModalOpen } = useModalStore();
+  const [transactions, setTransactions] = useLocalStorage('transactions', []);
+  const [investments, setInvestments] = useLocalStorage('investments', []);
+  const [goals, setGoals] = useLocalStorage('goals', []);
+  const [budgets, setBudgets] = useLocalStorage('budgets', []);
+  const [categories, setCategories] = useLocalStorage('categories', defaultCategories);
+  const [investmentTypes, setInvestmentTypes] = useLocalStorage('investmentTypesList', defaultInvestmentTypes);
+  const [accountsPayable, setAccountsPayable] = useLocalStorage('accountsPayable', []);
+  const [userDefinedAlerts, setUserDefinedAlerts] = useLocalStorage('dashboardUserAlerts', []);
+  const [previousMonthBalance, setPreviousMonthBalance] = useLocalStorage('previousMonthBalance', 0);
 
-  const [hasFetchedData, setHasFetchedData] = useState(false);
+  const [currentMonthDate, setCurrentMonthDate] = useState(new Date(getSystemDateISO()));
+  const [resetPeriod, setResetPeriod] = useState('all');
+  const [resetMonth, setResetMonth] = useState(new Date(getSystemDateISO()).getMonth());
+  const [resetYear, setResetYear] = useState(new Date(getSystemDateISO()).getFullYear());
 
-  const fetchData = useCallback(async () => {
-    if (!user || hasFetchedData) return;
+  const handleAddTransaction = (transaction) => {
+    const newTransaction = {
+      ...transaction,
+      id: transaction.id || uuidv4(),
+      date: formatInputDate(transaction.date),
+    };
+    setTransactions(prev => [...(prev || []), newTransaction]);
+  };
 
-    setLoading(true);
-    try {
-      const [
-        lancamentosData,
-        preferencesData,
-        contasData,
-        categoriesData,
-        orcamentosData,
-        dashboardData,
-      ] = await Promise.all([
-        getLancamentos(user),
-        getUserPreferences(user),
-        getContas(user),
-        getCategories(user),
-        getOrcamentos(user),
-        getDashboardData(user),
-      ]);
+  const addInvestment = (newInvestment) => {
+    const { name, quantity, unitPrice, date, type, sector } = newInvestment;
+    const existingInvestment = investments.find(inv => inv.name === name && inv.type === type);
 
-      setLancamentos(lancamentosData);
-      setPreferences(preferencesData);
-      setContas(contasData);
-      setCategories(categoriesData);
-      setOrcamentos(orcamentosData);
-      setDashboardData(dashboardData);
+    const investmentToSave = {
+      id: uuidv4(),
+      name,
+      quantity,
+      unitPrice,
+      type,
+      date: formatInputDate(date),
+      sector,
+    };
 
-      setHasFetchedData(true);
-    } catch (error) {
-      console.error("Erro ao buscar dados do usuário:", error);
-    } finally {
-      setLoading(false);
+    let updatedInvestments;
+    if (existingInvestment) {
+      updatedInvestments = investments.map(inv => {
+        if (inv.name === name && inv.type === type) {
+          return {
+            ...inv,
+            quantity: inv.quantity + quantity,
+            unitPrice: ((inv.unitPrice * inv.quantity) + (unitPrice * quantity)) / (inv.quantity + quantity),
+            date: formatInputDate(date),
+          };
+        }
+        return inv;
+      });
+    } else {
+      updatedInvestments = [...investments, investmentToSave];
     }
-  }, [
-    user,
-    setLoading,
-    setLancamentos,
-    setPreferences,
-    setContas,
-    setCategories,
-    setOrcamentos,
-    setDashboardData,
-    hasFetchedData,
-  ]);
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    setInvestments(updatedInvestments);
 
-  const refreshAppState = useCallback(async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      const [
-        lancamentosData,
-        preferencesData,
-        contasData,
-        categoriesData,
-        orcamentosData,
-        dashboardData,
-      ] = await Promise.all([
-        getLancamentos(user),
-        getUserPreferences(user),
-        getContas(user),
-        getCategories(user),
-        getOrcamentos(user),
-        getDashboardData(user),
-      ]);
-
-      setLancamentos(lancamentosData);
-      setPreferences(preferencesData);
-      setContas(contasData);
-      setCategories(categoriesData);
-      setOrcamentos(orcamentosData);
-      setDashboardData(dashboardData);
-    } catch (error) {
-      console.error("Erro ao atualizar estado da aplicação:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    user,
-    setLoading,
-    setLancamentos,
-    setPreferences,
-    setContas,
-    setCategories,
-    setOrcamentos,
-    setDashboardData,
-  ]);
+    // 🟢 Adiciona transação de despesa referente à nova compra do ativo
+    const totalCost = quantity * unitPrice;
+    handleAddTransaction({
+      id: uuidv4(),
+      title: `Compra de ${quantity}x ${name}`,
+      type: 'despesa',
+      value: totalCost,
+      category: 'Investimentos',
+      date: formatInputDate(date),
+    });
+  };
 
   return {
-    lancamentos,
-    isModalOpen,
-    refreshAppState,
-    resetAppState,
+    transactions,
+    setTransactions,
+    investments,
+    setInvestments,
+    addInvestment,
+    goals,
+    setGoals,
+    budgets,
+    setBudgets,
+    categories,
+    setCategories,
+    investmentTypes,
+    setInvestmentTypes,
+    accountsPayable,
+    setAccountsPayable,
+    userDefinedAlerts,
+    setUserDefinedAlerts,
+    currentMonthDate,
+    setCurrentMonthDate,
+    previousMonthBalance,
+    setPreviousMonthBalance,
+    resetPeriod,
+    setResetPeriod,
+    resetMonth,
+    setResetMonth,
+    resetYear,
+    setResetYear,
+    handleAddTransaction,
   };
 };
