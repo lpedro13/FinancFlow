@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { formatDate, formatCurrency, parseDate } from '@/utils/formatters';
 import { v4 as uuidv4 } from 'uuid';
-import { differenceInDays, isBefore, addDays, parseISO, isToday, getMonth, getYear as dfnsGetYear, subMonths } from 'date-fns';
+import { differenceInDays, isToday, getMonth, getYear as dfnsGetYear, subMonths, parseISO } from 'date-fns';
 
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import ExpensesChart from '@/components/dashboard/ExpensesChart';
@@ -38,16 +38,16 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
   const accountsPayableAlerts = useMemo(() => {
     if (!accountsPayable) return [];
     const today = new Date();
-    
+
     return accountsPayable
       .filter(acc => !acc.paid)
       .map(acc => {
         try {
           const dueDate = parseISO(acc.dueDate);
           const daysLeft = differenceInDays(dueDate, today);
-          
+
           if ((daysLeft >= 0 && daysLeft <= 2) || (isToday(dueDate) && daysLeft === 0)) {
-             let alertMessage = `Vence em ${daysLeft} dia(s)`;
+            let alertMessage = `Vence em ${daysLeft} dia(s)`;
             if (daysLeft === 0) alertMessage = 'Vence Hoje!';
             else if (daysLeft === 1) alertMessage = 'Vence Amanhã!';
 
@@ -77,10 +77,9 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
           return parseISO(a.dueDate) - parseISO(b.dueDate);
         } catch { return 0; }
       }
-      return 0; 
+      return 0;
     });
   }, [accountsPayableAlerts, userDefinedAlerts]);
-
 
   const dashboardData = useMemo(() => {
     const currentMonth = getMonth(currentMonthDate);
@@ -101,20 +100,24 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
 
     const totalIncomeCurrentMonth = currentMonthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + t.value, 0);
+
     const totalExpensesCurrentMonth = currentMonthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + t.value, 0);
+
     const balanceCurrentMonth = totalIncomeCurrentMonth - totalExpensesCurrentMonth;
 
     const totalIncomePreviousMonth = previousMonthTransactions
       .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + t.value, 0);
+
     const totalExpensesPreviousMonth = previousMonthTransactions
       .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
+      .reduce((sum, t) => sum + t.value, 0);
+
     const balancePreviousMonth = totalIncomePreviousMonth - totalExpensesPreviousMonth;
-    
+
     const calculatePercentageChange = (current, previous) => {
       if (previous === 0) return current > 0 ? 100 : (current < 0 ? -100 : 0);
       if (current === 0 && previous === 0) return 0;
@@ -124,7 +127,6 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
     const balanceChangePercentage = calculatePercentageChange(balanceCurrentMonth, balancePreviousMonth);
     const incomeChangePercentage = calculatePercentageChange(totalIncomeCurrentMonth, totalIncomePreviousMonth);
     const expensesChangePercentage = calculatePercentageChange(totalExpensesCurrentMonth, totalExpensesPreviousMonth);
-
 
     const totalInvested = investments.reduce((sum, inv) => sum + inv.totalInvested, 0);
     const totalInvestmentValue = investments.reduce((sum, inv) => sum + inv.currentValue, 0);
@@ -136,7 +138,7 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
       .reduce((acc, t) => {
         const categoryInfo = categories.find(c => c.id === t.category);
         const categoryName = categoryInfo ? categoryInfo.name : (t.category || 'Outros');
-        acc[categoryName] = (acc[categoryName] || 0) + t.amount;
+        acc[categoryName] = (acc[categoryName] || 0) + t.value;
         return acc;
       }, {});
 
@@ -156,20 +158,19 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
         acc[monthYear] = { month: monthYear, income: 0, expenses: 0, transactions: [] };
       }
       if (t.type === 'income') {
-        acc[monthYear].income += t.amount;
-      } else {
-        acc[monthYear].expenses += t.amount;
+        acc[monthYear].income += t.value;
+      } else if (t.type === 'expense') {
+        acc[monthYear].expenses += t.value;
       }
       acc[monthYear].transactions.push(t);
       return acc;
     }, {});
-    
-    const monthlyData = Object.values(monthlyDataRaw).sort((a,b) => {
-        const dateA = parseDate(a.transactions[0].date);
-        const dateB = parseDate(b.transactions[0].date);
-        return dateA - dateB;
-    });
 
+    const monthlyData = Object.values(monthlyDataRaw).sort((a, b) => {
+      const dateA = parseDate(a.transactions[0].date);
+      const dateB = parseDate(b.transactions[0].date);
+      return dateA - dateB;
+    });
 
     return {
       totalIncome: totalIncomeCurrentMonth,
@@ -186,7 +187,7 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
       monthlyData,
     };
   }, [transactions, investments, categories, currentMonthDate]);
-  
+
   const handleCardClick = (type) => {
     setSelectedCardType(type);
     if (type === 'balance' || type === 'income' || type === 'expenses') {
@@ -217,68 +218,75 @@ const Dashboard = ({ transactions, investments, goals, accountsPayable, categori
   };
 
   return (
-    <motion.div
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
-      <DashboardHeader
-        balance={dashboardData.balance}
-        totalIncome={dashboardData.totalIncome}
-        totalExpenses={dashboardData.totalExpenses}
-        totalInvestmentValue={dashboardData.totalInvestmentValue}
-        investmentReturnPercentage={dashboardData.investmentReturnPercentage}
-        balanceChangePercentage={dashboardData.balanceChangePercentage}
-        incomeChangePercentage={dashboardData.incomeChangePercentage}
-        expensesChangePercentage={dashboardData.expensesChangePercentage}
-        onCardClick={handleCardClick}
-      />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ExpensesChart data={dashboardData.pieData} />
-        <MonthlyEvolutionChart data={dashboardData.monthlyData} onBarClick={handleBarClick} />
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <GoalsProgress goals={goals} />
-        <SmartAlerts 
-            alerts={combinedAlerts} 
-            onAddAlert={handleAddAlert}
-            onUpdateAlert={handleUpdateAlert}
-            onDeleteAlert={handleDeleteAlert}
+    <>
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="dashboard-container"
+      >
+        <DashboardHeader
+          balance={dashboardData.balance}
+          income={dashboardData.totalIncome}
+          expenses={dashboardData.totalExpenses}
+          balanceChange={dashboardData.balanceChangePercentage}
+          incomeChange={dashboardData.incomeChangePercentage}
+          expensesChange={dashboardData.expensesChangePercentage}
+          onCardClick={handleCardClick}
         />
-      </div>
 
-      <RecentTransactions transactions={transactions} categories={categories} />
+        <ExpensesChart
+          data={dashboardData.pieData}
+          onClick={handleCardClick}
+        />
 
-      <TransactionDetailsModal
-        isOpen={isTransactionDetailsOpen && (selectedCardType === 'balance' || selectedCardType === 'income' || selectedCardType === 'expenses')}
-        onClose={() => setIsTransactionDetailsOpen(false)}
-        transactions={transactions}
-        type={selectedCardType}
-        balance={dashboardData.balance}
-        totalIncome={dashboardData.totalIncome}
-        totalExpenses={dashboardData.totalExpenses}
-        categories={categories}
-      />
+        <MonthlyEvolutionChart
+          data={dashboardData.monthlyData}
+          onBarClick={handleBarClick}
+        />
 
-      <InvestmentDetailsModal
-        isOpen={isInvestmentDetailsOpen && selectedCardType === 'investments'}
-        onClose={() => setIsInvestmentDetailsOpen(false)}
-        investments={investments}
-        totalInvestmentValue={dashboardData.totalInvestmentValue}
-        investmentReturn={dashboardData.investmentReturn}
-        investmentReturnPercentage={dashboardData.investmentReturnPercentage}
-      />
-      
-      <MonthlyReportModal
-        isOpen={isMonthlyReportOpen}
-        onClose={() => setIsMonthlyReportOpen(false)}
-        monthData={selectedMonthData}
-        categories={categories}
-      />
-    </motion.div>
+        <GoalsProgress
+          goals={goals}
+          totalInvested={dashboardData.totalInvested}
+          investmentReturnPercentage={dashboardData.investmentReturnPercentage}
+        />
+
+        <SmartAlerts
+          alerts={combinedAlerts}
+          onAddAlert={handleAddAlert}
+          onUpdateAlert={handleUpdateAlert}
+          onDeleteAlert={handleDeleteAlert}
+        />
+
+        <RecentTransactions
+          transactions={transactions}
+          onClick={handleCardClick}
+        />
+      </motion.div>
+
+      {isTransactionDetailsOpen && (
+        <TransactionDetailsModal
+          onClose={() => setIsTransactionDetailsOpen(false)}
+          transactions={transactions}
+          monthDate={currentMonthDate}
+          selectedType={selectedCardType}
+        />
+      )}
+
+      {isInvestmentDetailsOpen && (
+        <InvestmentDetailsModal
+          onClose={() => setIsInvestmentDetailsOpen(false)}
+          investments={investments}
+        />
+      )}
+
+      {isMonthlyReportOpen && selectedMonthData && (
+        <MonthlyReportModal
+          onClose={() => setIsMonthlyReportOpen(false)}
+          monthData={selectedMonthData}
+        />
+      )}
+    </>
   );
 };
 
