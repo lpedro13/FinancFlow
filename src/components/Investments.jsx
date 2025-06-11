@@ -7,85 +7,86 @@ const Investments = () => {
 
   const [assetName, setAssetName] = useState('');
   const [assetType, setAssetType] = useState('');
-  const [purchaseValue, setPurchaseValue] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState('');
+  const [purchaseDate, setPurchaseDate] = useState('');
 
   const handleSubmit = () => {
-    if (!assetName || !assetType || !purchaseValue || !purchaseDate || !quantity) {
+    if (!assetName || !assetType || !quantity || !purchasePrice || !purchaseDate) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
-    const unitPrice = parseFloat(purchaseValue.replace(',', '.'));
     const qty = parseFloat(quantity);
+    const price = parseFloat(purchasePrice.replace(',', '.'));
+    const totalPurchase = qty * price;
 
-    if (isNaN(unitPrice) || isNaN(qty) || qty <= 0) {
-      Alert.alert('Erro', 'Quantidade ou valor inválido!');
+    if (isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {
+      Alert.alert('Erro', 'Valores inválidos!');
       return;
     }
 
-    const totalValue = unitPrice * qty;
-
-    const existingAssetIndex = state.investments.findIndex(
+    const existingIndex = state.investments.findIndex(
       (inv) => inv.name.toLowerCase() === assetName.toLowerCase()
     );
 
-    if (existingAssetIndex !== -1) {
-      const updatedInvestments = [...state.investments];
-      const existing = updatedInvestments[existingAssetIndex];
+    if (existingIndex !== -1) {
+      // Atualiza investimento existente
+      const updated = [...state.investments];
+      const existing = updated[existingIndex];
 
       const newQuantity = existing.quantity + qty;
-      const newTotalValue = existing.totalValue + totalValue;
+      const newTotalValue = existing.totalValue + totalPurchase;
       const newAveragePrice = newTotalValue / newQuantity;
 
-      updatedInvestments[existingAssetIndex] = {
+      updated[existingIndex] = {
         ...existing,
         quantity: newQuantity,
         totalValue: newTotalValue,
         averagePrice: newAveragePrice,
       };
 
-      dispatch({ type: 'SET_INVESTMENTS', payload: updatedInvestments });
+      dispatch({ type: 'SET_INVESTMENTS', payload: updated });
     } else {
+      // Novo investimento
       dispatch({
         type: 'ADD_INVESTMENT',
         payload: {
           name: assetName,
           type: assetType,
           quantity: qty,
-          totalValue,
-          averagePrice: unitPrice,
+          totalValue: totalPurchase,
+          averagePrice: price,
           date: purchaseDate,
         },
       });
     }
 
-    // Cria transação de despesa
+    // Cria transação
     dispatch({
       type: 'ADD_TRANSACTION',
       payload: {
         id: Date.now().toString(),
         type: 'expense',
         description: `Compra de ${qty}x ${assetName}`,
-        amount: totalValue,
+        amount: totalPurchase,
         date: purchaseDate,
         category: 'Investimentos',
       },
     });
 
-    // Debita o saldo
+    // Debita do saldo
     dispatch({
       type: 'SET_BALANCE',
-      payload: state.balance - totalValue,
+      payload: state.balance - totalPurchase,
     });
 
-    // Limpa os campos
+    // Limpa formulário
     setAssetName('');
     setAssetType('');
-    setPurchaseValue('');
-    setPurchaseDate('');
     setQuantity('');
+    setPurchasePrice('');
+    setPurchaseDate('');
   };
 
   return (
@@ -106,17 +107,17 @@ const Investments = () => {
       />
       <TextInput
         style={styles.input}
-        placeholder="Quantidade de Cotas"
+        placeholder="Quantidade"
         keyboardType="numeric"
         value={quantity}
         onChangeText={setQuantity}
       />
       <TextInput
         style={styles.input}
-        placeholder="Valor por Cota"
+        placeholder="Preço por Cota"
         keyboardType="numeric"
-        value={purchaseValue}
-        onChangeText={setPurchaseValue}
+        value={purchasePrice}
+        onChangeText={setPurchasePrice}
       />
       <TextInput
         style={styles.input}
