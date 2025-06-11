@@ -3,11 +3,12 @@ import react from '@vitejs/plugin-react';
 import { createLogger, defineConfig } from 'vite';
 
 const isDev = process.env.NODE_ENV !== 'production';
-let inlineEditPlugin, editModeDevPlugin;
 
-if (isDev) {
-	inlineEditPlugin = (await import('./plugins/visual-editor/vite-plugin-react-inline-editor.js')).default;
-	editModeDevPlugin = (await import('./plugins/visual-editor/vite-plugin-edit-mode.js')).default;
+async function getDevPlugins() {
+  if (!isDev) return [];
+  const inlineEditPlugin = (await import('./plugins/visual-editor/vite-plugin-react-inline-editor.js')).default;
+  const editModeDevPlugin = (await import('./plugins/visual-editor/vite-plugin-edit-mode.js')).default;
+  return [inlineEditPlugin(), editModeDevPlugin()];
 }
 
 const configHorizonsViteErrorHandler = `
@@ -178,8 +179,8 @@ const addTransformIndexHtml = {
 
 console.warn = () => {};
 
-const logger = createLogger()
-const loggerError = logger.error
+const logger = createLogger();
+const loggerError = logger.error;
 
 logger.error = (msg, options) => {
 	if (options?.error?.toString().includes('CssSyntaxError: [postcss]')) {
@@ -187,14 +188,15 @@ logger.error = (msg, options) => {
 	}
 
 	loggerError(msg, options);
-}
+};
 
-export default defineConfig({
+export default defineConfig(async () => ({
+	base: '/FinacFlow/',  // <=== base corrigido aqui
 	customLogger: logger,
 	plugins: [
-		...(isDev ? [inlineEditPlugin(), editModeDevPlugin()] : []),
+		...(await getDevPlugins()),
 		react(),
-		addTransformIndexHtml
+		addTransformIndexHtml,
 	],
 	server: {
 		cors: true,
@@ -204,7 +206,7 @@ export default defineConfig({
 		allowedHosts: true,
 	},
 	resolve: {
-		extensions: ['.jsx', '.js', '.tsx', '.ts', '.json', ],
+		extensions: ['.jsx', '.js', '.tsx', '.ts', '.json'],
 		alias: {
 			'@': path.resolve(__dirname, './src'),
 		},
@@ -215,8 +217,8 @@ export default defineConfig({
 				'@babel/parser',
 				'@babel/traverse',
 				'@babel/generator',
-				'@babel/types'
-			]
-		}
-	}
-});
+				'@babel/types',
+			],
+		},
+	},
+}));
