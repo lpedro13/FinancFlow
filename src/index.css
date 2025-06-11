@@ -1,0 +1,148 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 222.2 84% 4.9%;
+  --foreground: 210 40% 98%;
+  --card: 222.2 84% 4.9%;
+  --card-foreground: 210 40% 98%;
+  --popover: 222.2 84% 4.9%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 142 76% 36%;
+  --primary-foreground: 355.7 100% 97.3%;
+  --secondary: 217.2 32.6% 17.5%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 217.2 32.6% 17.5%;
+  --muted-foreground: 215 20.2% 65.1%;
+  --accent: 217.2 32.6% 17.5%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 217.2 32.6% 17.5%;
+  --input: 217.2 32.6% 17.5%;
+  --ring: 142 76% 36%;
+  --radius: 0.5rem;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+  min-height: 100vh;
+}
+
+.glass-effect {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.gradient-text {
+  background: linear-gradient(135deg, #10b981, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+.animate-pulse-slow {
+  animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.recharts-tooltip-content {
+  background: rgba(15, 23, 42, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+  .tabs-list {
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+  }
+  .tabs-trigger span.hidden {
+    display: inline; 
+  }
+  .tabs-trigger span.sm\\:inline {
+    display: inline; 
+  }
+  .grid-cols-1.lg\\:grid-cols-2, .grid-cols-1.md\\:grid-cols-2, .grid-cols-1.md\\:grid-cols-3, .grid-cols-1.md\\:grid-cols-4, .grid-cols-1.lg\\:grid-cols-4 {
+    grid-template-columns: 1fr; 
+  }
+  .flex-col.sm\\:flex-row {
+    flex-direction: column; 
+  }
+  .sm\\:items-center {
+    align-items: flex-start; 
+  }
+  .dialog-content {
+    width: 90vw;
+    max-width: 90vw;
+  }
+}
+
+@media (max-width: 640px) {
+  .tabs-trigger {
+    font-size: 0.75rem; 
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+  .tabs-trigger svg {
+    height: 0.875rem;
+    width: 0.875rem;
+  }
+  .dialog-content {
+    padding: 1rem;
+  }
+  .dialog-header {
+    margin-bottom: 0.75rem;
+  }
+  .dialog-title {
+    font-size: 1.125rem;
+  }
+}
+
+.dialog-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.select-content {
+  max-height: 200px; /* Or any other suitable max-height */
+}
