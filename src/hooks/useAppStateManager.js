@@ -1,183 +1,195 @@
-import { useState, useMemo, useCallback } from 'react';
-import { useLocalStorage } from '@/hooks/useLocalStorage';
-import {
-  categories as defaultCategories,
-  investmentTypes as defaultInvestmentTypes,
-  generateRandomColor,
-  generateRandomIcon,
-} from '@/data/mockData';
-import {
-  parseDate,
-  getMonthName,
-  formatDate,
-  formatInputDate,
-  getSystemDateISO,
-} from '@/utils/formatters';
-import { calculateMonthlyContribution } from '@/utils/calculations';
+import { useCallback, useEffect, useState } from 'react';
+import { formatInputDate, getSystemDateISO } from '@/utils/date';
 import { v4 as uuidv4 } from 'uuid';
-import {
-  startOfMonth,
-  endOfMonth,
-  isWithinInterval,
-  getMonth,
-  getYear as dfnsGetYear,
-  addMonths,
-  isSameDay,
-  subMonths,
-  isValid,
-} from 'date-fns';
 
 export const useAppStateManager = () => {
-  const [transactions, setTransactions] = useLocalStorage('transactions', []);
-  const [investments, setInvestments] = useLocalStorage('investments', []);
-  const [goals, setGoals] = useLocalStorage('goals', []);
-  const [budgets, setBudgets] = useLocalStorage('budgets', []);
-  const [categories, setCategories] = useLocalStorage(
-    'categories',
-    defaultCategories
-  );
-  const [reminders, setReminders] = useLocalStorage('reminders', []);
-  const [investmentTypes] = useState(defaultInvestmentTypes);
-  const [filters, setFilters] = useState({
-    month: new Date().getMonth(),
-    year: new Date().getFullYear(),
-    category: '',
-  });
+  const [incomes, setIncomes] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [goals, setGoals] = useState([]);
+  const [investments, setInvestments] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [billsToPay, setBillsToPay] = useState([]);
 
-  const handleAddTransaction = (transaction) => {
-    const formattedTransaction = {
-      ...transaction,
+  const resetApp = useCallback(() => {
+    setIncomes([]);
+    setExpenses([]);
+    setGoals([]);
+    setInvestments([]);
+    setTransactions([]);
+    setBudgets([]);
+    setBillsToPay([]);
+  }, []);
+
+  const handleAddIncome = (income) => {
+    const newIncome = {
+      ...income,
       id: uuidv4(),
-      date: formatInputDate(transaction.date || getSystemDateISO()),
-    };
-    setTransactions((prev) => [...prev, formattedTransaction]);
-  };
-
-  const handleUpdateTransaction = (updatedTransaction) => {
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === updatedTransaction.id ? updatedTransaction : t))
-    );
-  };
-
-  const handleDeleteTransaction = (id) => {
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-  };
-
-  const handleAddInvestment = (investment) => {
-    const newInvestment = {
-      ...investment,
-      id: investment.id || uuidv4(),
-      date: formatInputDate(investment.date || getSystemDateISO()),
+      date: formatInputDate(income.date || getSystemDateISO())
     };
 
-    setInvestments((prev) => [...(prev || []), newInvestment]);
+    setIncomes(prev => [...(prev || []), newIncome]);
+
+    const incomeTransaction = {
+      id: uuidv4(),
+      type: 'income',
+      amount: newIncome.amount,
+      description: newIncome.description,
+      category: newIncome.category,
+      date: newIncome.date,
+    };
+
+    setTransactions(prev => [...(prev || []), incomeTransaction]);
+  };
+
+  const handleAddExpense = (expense) => {
+    const newExpense = {
+      ...expense,
+      id: uuidv4(),
+      date: formatInputDate(expense.date || getSystemDateISO())
+    };
+
+    setExpenses(prev => [...(prev || []), newExpense]);
 
     const expenseTransaction = {
       id: uuidv4(),
       type: 'expense',
-      amount: newInvestment.totalInvested,
-      description: `Investimento em ${newInvestment.name}`,
-      category: 'Investimentos',
-      date: newInvestment.date,
+      amount: newExpense.amount,
+      description: newExpense.description,
+      category: newExpense.category,
+      date: newExpense.date,
     };
 
-    handleAddTransaction(expenseTransaction);
+    setTransactions(prev => [...(prev || []), expenseTransaction]);
   };
 
-  const handleUpdateInvestment = (updatedInvestment) => {
-    setInvestments((prev) =>
-      prev.map((inv) => (inv.id === updatedInvestment.id ? updatedInvestment : inv))
-    );
-  };
+  const handleAddInvestment = (investment) => {
+    const date = formatInputDate(investment.date || getSystemDateISO());
+    const quantity = parseFloat(investment.quantity || 1);
+    const unitPrice = parseFloat(investment.unitPrice || investment.totalInvested || 0);
+    const totalPurchase = quantity * unitPrice;
 
-  const handleDeleteInvestment = (id) => {
-    setInvestments((prev) => prev.filter((inv) => inv.id !== id));
+    let updated = false;
+
+    const updatedInvestments = (investments || []).map((inv) => {
+      if (inv.name === investment.name) {
+        const newQuantity = inv.quantity + quantity;
+        const newTotal = inv.totalValue + totalPurchase;
+        const newAverage = newTotal / newQuantity;
+
+        updated = true;
+
+        return {
+          ...inv,
+          quantity: newQuantity,
+          totalValue: newTotal,
+          averagePrice: newAverage,
+          date,
+        };
+      }
+      return inv;
+    });
+
+    if (!updated) {
+      updatedInvestments.push({
+        id: uuidv4(),
+        name: investment.name,
+        type: investment.type,
+        quantity,
+        totalValue: totalPurchase,
+        averagePrice: unitPrice,
+        date,
+      });
+    }
+
+    setInvestments(updatedInvestments);
+
+    const expenseTransaction = {
+      id: uuidv4(),
+      type: 'expense',
+      amount: totalPurchase,
+      description: `Compra de ${quantity}x ${investment.name}`,
+      category: 'Investimentos',
+      date,
+    };
+
+    setTransactions((prev) => [...(prev || []), expenseTransaction]);
   };
 
   const handleAddGoal = (goal) => {
-    const newGoal = { ...goal, id: uuidv4(), color: generateRandomColor() };
-    setGoals((prev) => [...prev, newGoal]);
+    const newGoal = {
+      ...goal,
+      id: uuidv4(),
+      date: formatInputDate(goal.date || getSystemDateISO())
+    };
+    setGoals(prev => [...(prev || []), newGoal]);
   };
 
-  const handleUpdateGoal = (updatedGoal) => {
-    setGoals((prev) =>
-      prev.map((goal) => (goal.id === updatedGoal.id ? updatedGoal : goal))
-    );
-  };
+  const handleAddBillToPay = (bill) => {
+    const newBill = {
+      ...bill,
+      id: uuidv4(),
+      date: formatInputDate(bill.date || getSystemDateISO())
+    };
 
-  const handleDeleteGoal = (id) => {
-    setGoals((prev) => prev.filter((goal) => goal.id !== id));
-  };
-
-  const handleAddReminder = (reminder) => {
-    const newReminder = { ...reminder, id: uuidv4() };
-    setReminders((prev) => [...prev, newReminder]);
-  };
-
-  const handleUpdateReminder = (updatedReminder) => {
-    setReminders((prev) =>
-      prev.map((r) => (r.id === updatedReminder.id ? updatedReminder : r))
-    );
-  };
-
-  const handleDeleteReminder = (id) => {
-    setReminders((prev) => prev.filter((r) => r.id !== id));
+    setBillsToPay(prev => [...(prev || []), newBill]);
   };
 
   const handleAddBudget = (budget) => {
     const newBudget = {
       ...budget,
       id: uuidv4(),
-      color: generateRandomColor(),
-      icon: generateRandomIcon(),
+      date: formatInputDate(budget.date || getSystemDateISO())
     };
-    setBudgets((prev) => [...prev, newBudget]);
+
+    setBudgets(prev => [...(prev || []), newBudget]);
   };
 
-  const handleUpdateBudget = (updatedBudget) => {
-    setBudgets((prev) =>
-      prev.map((b) => (b.id === updatedBudget.id ? updatedBudget : b))
-    );
-  };
+  const totalIncome = useMemo(
+    () => incomes.reduce((acc, curr) => acc + parseFloat(curr.amount), 0),
+    [incomes]
+  );
 
-  const handleDeleteBudget = (id) => {
-    setBudgets((prev) => prev.filter((b) => b.id !== id));
-  };
+  const totalExpenses = useMemo(
+    () => expenses.reduce((acc, curr) => acc + parseFloat(curr.amount), 0),
+    [expenses]
+  );
 
-  const resetData = () => {
-    setTransactions([]);
-    setInvestments([]);
-    setGoals([]);
-    setBudgets([]);
-    setCategories(defaultCategories);
-    setReminders([]);
-  };
+  const totalInvested = useMemo(
+    () => investments.reduce((acc, curr) => acc + parseFloat(curr.totalValue || 0), 0),
+    [investments]
+  );
+
+  const totalBalance = useMemo(
+    () => totalIncome - totalExpenses - totalInvested,
+    [totalIncome, totalExpenses, totalInvested]
+  );
 
   return {
-    transactions,
-    investments,
+    incomes,
+    expenses,
     goals,
+    investments,
+    transactions,
     budgets,
-    categories,
-    reminders,
-    investmentTypes,
-    filters,
-    setFilters,
-    handleAddTransaction,
-    handleUpdateTransaction,
-    handleDeleteTransaction,
-    handleAddInvestment,
-    handleUpdateInvestment,
-    handleDeleteInvestment,
+    billsToPay,
+    setIncomes,
+    setExpenses,
+    setGoals,
+    setInvestments,
+    setTransactions,
+    setBudgets,
+    setBillsToPay,
+    handleAddIncome,
+    handleAddExpense,
     handleAddGoal,
-    handleUpdateGoal,
-    handleDeleteGoal,
-    handleAddReminder,
-    handleUpdateReminder,
-    handleDeleteReminder,
+    handleAddInvestment,
+    handleAddBillToPay,
     handleAddBudget,
-    handleUpdateBudget,
-    handleDeleteBudget,
-    resetData,
+    resetApp,
+    totalIncome,
+    totalExpenses,
+    totalInvested,
+    totalBalance
   };
 };
