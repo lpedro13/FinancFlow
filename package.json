@@ -1,5 +1,6 @@
 {
   "name": "controle-financeiro",
+  "homepage": "https://lpedro13.github.io/FinancFlow",
   "type": "module",
   "version": "0.0.0",
   "private": true,
@@ -35,6 +36,7 @@
     "react-datepicker": "^4.21.0",
     "react-day-picker": "^8.10.0",
     "react-dom": "^18.2.0",
+    "react-router-dom": "^7.6.2",
     "recharts": "^2.8.0",
     "tailwind-merge": "^1.14.0",
     "tailwindcss-animate": "^1.0.7",
