@@ -3,87 +3,42 @@ import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useAppState } from '../contexts/AppStateContext';
 
 const Investments = () => {
-  const { state, dispatch } = useAppState();
+  const {
+    handleAddInvestment
+  } = useAppState();
 
   const [assetName, setAssetName] = useState('');
   const [assetType, setAssetType] = useState('');
   const [quantity, setQuantity] = useState('');
-  const [purchasePrice, setPurchasePrice] = useState('');
+  const [unitPrice, setUnitPrice] = useState('');
   const [purchaseDate, setPurchaseDate] = useState('');
 
   const handleSubmit = () => {
-    if (!assetName || !assetType || !quantity || !purchasePrice || !purchaseDate) {
+    if (!assetName || !assetType || !quantity || !unitPrice || !purchaseDate) {
       Alert.alert('Erro', 'Preencha todos os campos!');
       return;
     }
 
     const qty = parseFloat(quantity);
-    const price = parseFloat(purchasePrice.replace(',', '.'));
-    const totalPurchase = qty * price;
+    const price = parseFloat(unitPrice.replace(',', '.'));
 
     if (isNaN(qty) || isNaN(price) || qty <= 0 || price <= 0) {
       Alert.alert('Erro', 'Valores inválidos!');
       return;
     }
 
-    const existingIndex = state.investments.findIndex(
-      (inv) => inv.name.toLowerCase() === assetName.toLowerCase()
-    );
-
-    if (existingIndex !== -1) {
-      const updated = [...state.investments];
-      const existing = updated[existingIndex];
-
-      const newQuantity = existing.quantity + qty;
-      const newTotalValue = existing.totalValue + totalPurchase;
-      const newAveragePrice = newTotalValue / newQuantity;
-
-      updated[existingIndex] = {
-        ...existing,
-        quantity: newQuantity,
-        totalValue: newTotalValue,
-        averagePrice: newAveragePrice,
-      };
-
-      dispatch({ type: 'SET_INVESTMENTS', payload: updated });
-    } else {
-      dispatch({
-        type: 'ADD_INVESTMENT',
-        payload: {
-          name: assetName,
-          type: assetType,
-          quantity: qty,
-          totalValue: totalPurchase,
-          averagePrice: price,
-          date: purchaseDate,
-        },
-      });
-    }
-
-    // ✅ SEMPRE adiciona transação
-    dispatch({
-      type: 'ADD_TRANSACTION',
-      payload: {
-        id: Date.now().toString(),
-        type: 'expense',
-        description: `Compra de ${qty}x ${assetName}`,
-        amount: totalPurchase,
-        date: purchaseDate,
-        category: 'Investimentos',
-      },
+    handleAddInvestment({
+      name: assetName,
+      type: assetType,
+      quantity: qty,
+      unitPrice: price,
+      date: purchaseDate,
     });
 
-    // ✅ SEMPRE atualiza saldo
-    dispatch({
-      type: 'SET_BALANCE',
-      payload: state.balance - totalPurchase,
-    });
-
-    // ✅ Limpa os campos
     setAssetName('');
     setAssetType('');
     setQuantity('');
-    setPurchasePrice('');
+    setUnitPrice('');
     setPurchaseDate('');
   };
 
@@ -114,8 +69,8 @@ const Investments = () => {
         style={styles.input}
         placeholder="Preço por Cota"
         keyboardType="numeric"
-        value={purchasePrice}
-        onChangeText={setPurchasePrice}
+        value={unitPrice}
+        onChangeText={setUnitPrice}
       />
       <TextInput
         style={styles.input}
