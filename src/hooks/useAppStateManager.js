@@ -65,55 +65,51 @@ export const useAppStateManager = () => {
 
   const handleAddInvestment = (investment) => {
     const date = formatInputDate(investment.date || getSystemDateISO());
-    const quantity = parseFloat(investment.quantity || 1);
-    const unitPrice = parseFloat(investment.unitPrice || investment.totalInvested || 0);
+    const quantity = parseFloat(investment.quantity);
+    const unitPrice = parseFloat(investment.unitPrice);
     const totalPurchase = quantity * unitPrice;
 
-    // Verifica se o investimento já existe
-    const investmentExists = investments.some(inv => inv.name === investment.name);
+    // Atualiza ou adiciona investimento
+    let investmentExists = false;
+    const updatedInvestments = investments.map(inv => {
+      if (inv.name === investment.name) {
+        investmentExists = true;
+        return {
+          ...inv,
+          quantity: inv.quantity + quantity,
+          totalValue: inv.totalValue + totalPurchase,
+          averagePrice: (inv.totalValue + totalPurchase) / (inv.quantity + quantity),
+          date
+        };
+      }
+      return inv;
+    });
 
-    // Atualiza a lista de investimentos
-    const updatedInvestments = investmentExists
-      ? investments.map(inv => {
-          if (inv.name === investment.name) {
-            const newQuantity = inv.quantity + quantity;
-            const newTotal = inv.totalValue + totalPurchase;
-            return {
-              ...inv,
-              quantity: newQuantity,
-              totalValue: newTotal,
-              averagePrice: newTotal / newQuantity,
-              date,
-            };
-          }
-          return inv;
-        })
-      : [
-          ...investments,
-          {
-            id: uuidv4(),
-            name: investment.name,
-            type: investment.type,
-            quantity,
-            totalValue: totalPurchase,
-            averagePrice: unitPrice,
-            date,
-          },
-        ];
+    if (!investmentExists) {
+      updatedInvestments.push({
+        id: uuidv4(),
+        name: investment.name,
+        type: investment.type,
+        quantity,
+        totalValue: totalPurchase,
+        averagePrice: unitPrice,
+        date,
+      });
+    }
 
     setInvestments(updatedInvestments);
 
-    // CRIA A TRANSAÇÃO EM TODOS OS CASOS
-    const expenseTransaction = {
+    // GARANTE A CRIAÇÃO DA TRANSAÇÃO EM TODOS OS CASOS
+    const newTransaction = {
       id: uuidv4(),
       type: 'expense',
-      amount: totalPurchase,
-      description: `Compra de ${quantity}x ${investment.name}`,
+      amount: -totalPurchase, // Valor negativo para débito
+      description: `Compra de ${quantity}x ${investment.name} @ R$${unitPrice.toFixed(2)}`,
       category: 'Investimentos',
       date,
     };
 
-    setTransactions(prev => [...(prev || []), expenseTransaction]);
+    setTransactions(prev => [...prev, newTransaction]);
   };
 
   const handleAddGoal = (goal) => {
