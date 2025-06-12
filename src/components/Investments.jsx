@@ -31,7 +31,6 @@ const Investments = () => {
     );
 
     if (existingIndex !== -1) {
-      // Atualiza investimento existente
       const updated = [...state.investments];
       const existing = updated[existingIndex];
 
@@ -48,7 +47,6 @@ const Investments = () => {
 
       dispatch({ type: 'SET_INVESTMENTS', payload: updated });
     } else {
-      // Novo investimento
       dispatch({
         type: 'ADD_INVESTMENT',
         payload: {
@@ -62,7 +60,7 @@ const Investments = () => {
       });
     }
 
-    // 🔁 Estes dois dispatches devem acontecer SEMPRE, fora do if/else
+    // ✅ SEMPRE adiciona transação
     dispatch({
       type: 'ADD_TRANSACTION',
       payload: {
@@ -75,12 +73,13 @@ const Investments = () => {
       },
     });
 
+    // ✅ SEMPRE atualiza saldo
     dispatch({
       type: 'SET_BALANCE',
       payload: state.balance - totalPurchase,
     });
 
-    // Limpa o formulário
+    // ✅ Limpa os campos
     setAssetName('');
     setAssetType('');
     setQuantity('');
