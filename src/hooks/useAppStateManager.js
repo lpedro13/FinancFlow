@@ -21,47 +21,7 @@ export const useAppStateManager = () => {
     setBillsToPay([]);
   }, []);
 
-  const handleAddIncome = (income) => {
-    const newIncome = {
-      ...income,
-      id: uuidv4(),
-      date: formatInputDate(income.date || getSystemDateISO())
-    };
-
-    setIncomes(prev => [...(prev || []), newIncome]);
-
-    const incomeTransaction = {
-      id: uuidv4(),
-      type: 'income',
-      amount: newIncome.amount,
-      description: newIncome.description,
-      category: newIncome.category,
-      date: newIncome.date,
-    };
-
-    setTransactions(prev => [...(prev || []), incomeTransaction]);
-  };
-
-  const handleAddExpense = (expense) => {
-    const newExpense = {
-      ...expense,
-      id: uuidv4(),
-      date: formatInputDate(expense.date || getSystemDateISO())
-    };
-
-    setExpenses(prev => [...(prev || []), newExpense]);
-
-    const expenseTransaction = {
-      id: uuidv4(),
-      type: 'expense',
-      amount: newExpense.amount,
-      description: newExpense.description,
-      category: newExpense.category,
-      date: newExpense.date,
-    };
-
-    setTransactions(prev => [...(prev || []), expenseTransaction]);
-  };
+  // [Manter todas as outras funções existentes...]
 
   const handleAddInvestment = (investment) => {
     const date = formatInputDate(investment.date || getSystemDateISO());
@@ -69,23 +29,17 @@ export const useAppStateManager = () => {
     const unitPrice = parseFloat(investment.unitPrice);
     const totalPurchase = quantity * unitPrice;
 
-    // Atualiza ou adiciona investimento
-    let investmentExists = false;
-    const updatedInvestments = investments.map(inv => {
-      if (inv.name === investment.name) {
-        investmentExists = true;
-        return {
-          ...inv,
-          quantity: inv.quantity + quantity,
-          totalValue: inv.totalValue + totalPurchase,
-          averagePrice: (inv.totalValue + totalPurchase) / (inv.quantity + quantity),
-          date
-        };
-      }
-      return inv;
-    });
+    const updatedInvestments = investments.map(inv => 
+      inv.name === investment.name ? {
+        ...inv,
+        quantity: inv.quantity + quantity,
+        totalValue: inv.totalValue + totalPurchase,
+        averagePrice: (inv.totalValue + totalPurchase) / (inv.quantity + quantity),
+        date
+      } : inv
+    );
 
-    if (!investmentExists) {
+    if (!investments.some(inv => inv.name === investment.name)) {
       updatedInvestments.push({
         id: uuidv4(),
         name: investment.name,
@@ -94,98 +48,105 @@ export const useAppStateManager = () => {
         totalValue: totalPurchase,
         averagePrice: unitPrice,
         date,
+        purchaseHistory: [{ quantity, unitPrice, date }]
       });
+    } else {
+      const index = updatedInvestments.findIndex(inv => inv.name === investment.name);
+      updatedInvestments[index].purchaseHistory = [
+        ...(updatedInvestments[index].purchaseHistory || []),
+        { quantity, unitPrice, date }
+      ];
     }
 
     setInvestments(updatedInvestments);
 
-    // GARANTE A CRIAÇÃO DA TRANSAÇÃO EM TODOS OS CASOS
-    const newTransaction = {
+    // Cria transação de compra
+    setTransactions(prev => [...prev, {
       id: uuidv4(),
-      type: 'expense',
-      amount: -totalPurchase, // Valor negativo para débito
+      type: 'investment_out',
+      amount: -totalPurchase,
       description: `Compra de ${quantity}x ${investment.name} @ R$${unitPrice.toFixed(2)}`,
       category: 'Investimentos',
       date,
-    };
-
-    setTransactions(prev => [...prev, newTransaction]);
+    }]);
   };
 
-  const handleAddGoal = (goal) => {
-    const newGoal = {
-      ...goal,
+  const handleSellInvestment = (sale) => {
+    const date = formatInputDate(sale.date || getSystemDateISO());
+    const quantity = parseFloat(sale.quantity);
+    const unitPrice = parseFloat(sale.unitPrice);
+    const totalSale = quantity * unitPrice;
+
+    const investment = investments.find(inv => inv.name === sale.name);
+    if (!investment || investment.quantity < quantity) {
+      Alert.alert('Erro', 'Quantidade insuficiente para venda');
+      return;
+    }
+
+    // Cálculo do preço médio e lucro
+    const averagePrice = investment.averagePrice;
+    const profit = (unitPrice - averagePrice) * quantity;
+
+    // Atualiza investimento
+    const updatedInvestments = investments.map(inv => 
+      inv.name === sale.name ? {
+        ...inv,
+        quantity: inv.quantity - quantity,
+        totalValue: inv.totalValue - (averagePrice * quantity),
+        averagePrice: inv.quantity - quantity === 0 ? 0 : inv.averagePrice,
+        saleHistory: [...(inv.saleHistory || []), { quantity, unitPrice, date, profit }]
+      } : inv
+    ).filter(inv => inv.quantity > 0);
+
+    setInvestments(updatedInvestments);
+
+    // Cria transação de venda
+    setTransactions(prev => [...prev, {
       id: uuidv4(),
-      date: formatInputDate(goal.date || getSystemDateISO())
-    };
-    setGoals(prev => [...(prev || []), newGoal]);
+      type: 'investment_in',
+      amount: totalSale,
+      description: `Venda de ${quantity}x ${sale.name} @ R$${unitPrice.toFixed(2)}`,
+      category: 'Investimentos',
+      date,
+    }]);
+
+    // Se houve lucro, cria uma transação adicional
+    if (profit > 0) {
+      setTransactions(prev => [...prev, {
+        id: uuidv4(),
+        type: 'investment_profit',
+        amount: profit,
+        description: `Lucro na venda de ${sale.name}`,
+        category: 'Investimentos',
+        date,
+      }]);
+    }
   };
 
-  const handleAddBillToPay = (bill) => {
-    const newBill = {
-      ...bill,
-      id: uuidv4(),
-      date: formatInputDate(bill.date || getSystemDateISO())
-    };
-
-    setBillsToPay(prev => [...(prev || []), newBill]);
-  };
-
-  const handleAddBudget = (budget) => {
-    const newBudget = {
-      ...budget,
-      id: uuidv4(),
-      date: formatInputDate(budget.date || getSystemDateISO())
-    };
-
-    setBudgets(prev => [...(prev || []), newBudget]);
-  };
-
-  const totalIncome = useMemo(
-    () => incomes.reduce((acc, curr) => acc + parseFloat(curr.amount), 0),
-    [incomes]
-  );
-
-  const totalExpenses = useMemo(
-    () => expenses.reduce((acc, curr) => acc + parseFloat(curr.amount), 0),
-    [expenses]
-  );
+  // [Manter o restante das funções existentes...]
 
   const totalInvested = useMemo(
-    () => investments.reduce((acc, curr) => acc + parseFloat(curr.totalValue || 0), 0),
+    () => investments.reduce((acc, curr) => acc + (curr.quantity * curr.averagePrice), 0),
+    [investments]
+  );
+
+  const investmentReturns = useMemo(
+    () => investments.reduce((acc, curr) => {
+      const currentValue = curr.quantity * (curr.currentPrice || curr.averagePrice);
+      const investedValue = curr.quantity * curr.averagePrice;
+      return acc + (currentValue - investedValue);
+    }, 0),
     [investments]
   );
 
   const totalBalance = useMemo(
-    () => totalIncome - totalExpenses - totalInvested,
-    [totalIncome, totalExpenses, totalInvested]
+    () => totalIncome - totalExpenses - totalInvested + investmentReturns,
+    [totalIncome, totalExpenses, totalInvested, investmentReturns]
   );
 
   return {
-    incomes,
-    expenses,
-    goals,
-    investments,
-    transactions,
-    budgets,
-    billsToPay,
-    setIncomes,
-    setExpenses,
-    setGoals,
-    setInvestments,
-    setTransactions,
-    setBudgets,
-    setBillsToPay,
-    handleAddIncome,
-    handleAddExpense,
-    handleAddGoal,
-    handleAddInvestment,
-    handleAddBillToPay,
-    handleAddBudget,
-    resetApp,
-    totalIncome,
-    totalExpenses,
-    totalInvested,
-    totalBalance
+    // [Manter todos os retornos existentes...]
+    handleSellInvestment,
+    investmentReturns
   };
 };
