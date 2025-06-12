@@ -62,7 +62,7 @@ const Investments = () => {
       });
     }
 
-    // Cria transação
+    // 🔁 Estes dois dispatches devem acontecer SEMPRE, fora do if/else
     dispatch({
       type: 'ADD_TRANSACTION',
       payload: {
@@ -75,13 +75,12 @@ const Investments = () => {
       },
     });
 
-    // Debita do saldo
     dispatch({
       type: 'SET_BALANCE',
       payload: state.balance - totalPurchase,
     });
 
-    // Limpa formulário
+    // Limpa o formulário
     setAssetName('');
     setAssetType('');
     setQuantity('');
